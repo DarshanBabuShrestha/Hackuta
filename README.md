@@ -1,6 +1,6 @@
 # Odyssey Guardian experimental fall detection MVP
 
-This prototype streams six-axis motion from an original Arduino Nano 33 BLE Sense to a Windows laptop. Python classifies each 32-reading window and starts a 15-second confirmation timer for possible falls. It prints a caregiver alert requirement only; it does not contact anyone.
+This prototype streams six-axis motion from an original Arduino Nano 33 BLE Sense to a Windows laptop. Python classifies each 32-reading window for falls and separately reports an experimental simulated-seizure-like movement score after collecting a 206-sample acceleration window. Possible falls start a 15-second confirmation timer. It prints a caregiver alert requirement only; it does not contact anyone.
 
 ## What is in this workspace
 
@@ -58,10 +58,13 @@ The held-out participant test split for this window model reached 79.7% accuracy
 
 ## Voice confirmation integration
 
-Use `--voice-confirmation` to enroll the owner for the current session and start a microphone prompt when a fall is detected. A response containing “I'm okay” from the enrolled voice tentatively cancels the incident; otherwise the caregiver alert remains active.
+Use `--voice-confirmation` to enroll the owner for the current session and start a microphone prompt when a fall is detected. A response containing ï¿½I'm okayï¿½ from the enrolled voice tentatively cancels the incident; otherwise the caregiver alert remains active.
 
 ```powershell
 python -m backend.main --simulate path\to\imu.csv --voice-confirmation
 ```
 
 This is an experimental hackathon feature, not secure identity verification or a medical safety guarantee. Speech transcription uses Google's recognition service.
+## Experimental seizure-like movement score
+
+The backend loads `ml/seizure/seizure_models/epilepsy_rf.joblib`, buffers the acceleration axes from the live 50 Hz stream, resamples to the artifact's 16 Hz cadence, and calls the exact `features()` function in `ml/seizure/train_epilepsy_models.py`. It reports a probability and class after the 206-sample (about 12.9-second) buffer fills. `--seizure-threshold` changes the displayed class cutoff (default `0.5`). This score is experimental only: model training used staged movements, and Arduino units, orientation, placement, and preprocessing have not been calibrated to the dataset. It must not be treated as seizure detection or used for medical decisions.

@@ -12,6 +12,7 @@ import numpy as np
 from backend.fall_detector import FallDetector
 from backend.features import G, WINDOW_SIZE
 from backend.incident_manager import IncidentManager
+from backend.seizure_detector import SeizureMotionDetector
 from backend.serial_bridge import SerialBridge, Sample, parse_message
 
 
@@ -63,11 +64,14 @@ def main(argv=None):
     parser.add_argument('--voice-confirmation', action='store_true',
                         help='Enroll the owner and use microphone confirmation after a fall')
     parser.add_argument('--voice-model-dir', type=Path)
+    parser.add_argument('--seizure-threshold', type=float, default=.5,
+                        help='Experimental simulated-seizure-like movement threshold')
     args = parser.parse_args(argv)
     if not args.port and not args.simulate:
         parser.error('Supply --port COM4 or --simulate PATH')
     logging.basicConfig(level=logging.INFO, format='%(message)s')
     detector = FallDetector(threshold=args.threshold, cooldown=args.cooldown)
+    seizure_detector = SeizureMotionDetector(threshold=args.seizure_threshold)
     incident = IncidentManager()
     voice = None
     voice_results = queue.Queue()
@@ -97,7 +101,7 @@ def main(argv=None):
                 try:
                     windows.put_nowait(window)
                 except queue.Full:
-                    logging.warning('Processing behind; dropping sensor window')
+                    continue
         except Exception as exc:
             collection_errors.append(exc)
             logging.exception('Sensor collection stopped')
@@ -105,6 +109,8 @@ def main(argv=None):
             stop.set()
 
     threading.Thread(target=collect, daemon=True).start()
+    frame_index = 0
+    seizure_was_detected = False
     try:
         while True:
             while not commands.empty():
@@ -128,15 +134,25 @@ def main(argv=None):
                 if stop.is_set() and windows.empty() and incident.state != 'CONFIRMING':
                     break
                 continue
-            print('Sensor window collected', flush=True)
-            label, probability, trigger = detector.predict(window)
-            print(f'Fall probability: {probability:.2f}', flush=True)
+            # SerialBridge emits 32 samples with a 16-sample hop at 50 Hz.
+            # Replay windows use the same nominal timing.
+            end_ms = 620 + frame_index * 320
+            frame_index += 1
+            seizure_result = seizure_detector.push_window(window, end_ms)
+            if seizure_result is not None:
+                seizure_label, _ = seizure_result
+                seizure_detected = seizure_label == 'simulated_seizure_like_motion'
+                if seizure_detected and not seizure_was_detected:
+                    print('SIMULATED SEIZURE-LIKE MOVEMENT DETECTED', flush=True)
+                seizure_was_detected = seizure_detected
+            _, _, trigger = detector.predict(window)
             if trigger:
                 if incident.candidate() and voice:
                     threading.Thread(target=voice_confirmation,
                                      args=(voice, voice_results), daemon=True).start()
             else:
                 print(f'Status: {incident.state}', flush=True)
+                incident.candidate()
     except KeyboardInterrupt:
         print('Stopping.')
     if collection_errors:
