@@ -1,0 +1,48 @@
+{
+  "dataset": {
+    "train_count": 137,
+    "test_count": 138,
+    "train_positive": 34,
+    "test_positive": 34,
+    "rate_hz": 16,
+    "shape_per_recording": [
+      206,
+      3
+    ],
+    "split": "official three-participant versus three-participant split"
+  },
+  "random_forest": {
+    "accuracy": 0.9565217391304348,
+    "seizure_like_motion_recall": 0.9117647058823529,
+    "positive_precision": 0.9117647058823529,
+    "f1": 0.9117647058823529,
+    "confusion_matrix": [
+      [
+        101,
+        3
+      ],
+      [
+        3,
+        31
+      ]
+    ],
+    "threshold": 0.5
+  },
+  "cnn": {
+    "accuracy": 0.9492753623188406,
+    "seizure_like_motion_recall": 0.9117647058823529,
+    "positive_precision": 0.8857142857142857,
+    "f1": 0.8985507246376812,
+    "confusion_matrix": [
+      [
+        100,
+        4
+      ],
+      [
+        3,
+        31
+      ]
+    ],
+    "threshold": 0.5
+  }
+}
