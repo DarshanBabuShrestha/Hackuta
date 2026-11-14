@@ -15,6 +15,13 @@ from backend.incident_manager import IncidentManager
 from backend.serial_bridge import SerialBridge, Sample, parse_message
 
 
+def voice_confirmation(verifier, results):
+    try:
+        results.put(verifier.confirm_fall())
+    except Exception as exc:
+        results.put(exc)
+
+
 def keyboard_reader(commands):
     for line in sys.stdin:
         commands.put(line.strip().lower())
@@ -53,12 +60,27 @@ def main(argv=None):
     parser.add_argument('--speed', type=float, default=1, help='Replay speed; 0 for fastest')
     parser.add_argument('--threshold', type=float, default=.7)
     parser.add_argument('--cooldown', type=float, default=20)
+    parser.add_argument('--voice-confirmation', action='store_true',
+                        help='Enroll the owner and use microphone confirmation after a fall')
+    parser.add_argument('--voice-model-dir', type=Path)
     args = parser.parse_args(argv)
     if not args.port and not args.simulate:
         parser.error('Supply --port COM4 or --simulate PATH')
     logging.basicConfig(level=logging.INFO, format='%(message)s')
     detector = FallDetector(threshold=args.threshold, cooldown=args.cooldown)
     incident = IncidentManager()
+    voice = None
+    voice_results = queue.Queue()
+    if args.voice_confirmation:
+        import importlib.util
+        voice_path = Path(__file__).parents[1] / 'voice-ai' / 'speech.py'
+        spec = importlib.util.spec_from_file_location('odyssey_voice', voice_path)
+        voice_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(voice_module)
+        voice = voice_module.VoiceVerifier(args.voice_model_dir)
+        print('=== VOICE REGISTRATION ===', flush=True)
+        voice.enroll()
+        print('Voice registered for this session.', flush=True)
     commands = queue.Queue()
     threading.Thread(target=keyboard_reader, args=(commands,), daemon=True).start()
     bridge = SerialBridge(args.port or 'simulation', baud=args.baud)
@@ -89,6 +111,17 @@ def main(argv=None):
                 if commands.get_nowait() in ('c', 'cancel', 'okay'):
                     incident.cancel()
             incident.tick()
+            while not voice_results.empty():
+                result = voice_results.get_nowait()
+                if isinstance(result, Exception):
+                    print(f'Voice confirmation failed: {result}', flush=True)
+                else:
+                    score, is_owner, said_okay, spoken_text = result
+                    print(f'Voice response: {spoken_text!r}; similarity: {score:.3f}', flush=True)
+                    if is_owner and said_okay and incident.cancel():
+                        print('Owner voice tentatively verified; incident cancelled.', flush=True)
+                    else:
+                        print('Voice confirmation not verified; alert remains active.', flush=True)
             try:
                 window = windows.get(timeout=.1)
             except queue.Empty:
@@ -99,7 +132,9 @@ def main(argv=None):
             label, probability, trigger = detector.predict(window)
             print(f'Fall probability: {probability:.2f}', flush=True)
             if trigger:
-                incident.candidate()
+                if incident.candidate() and voice:
+                    threading.Thread(target=voice_confirmation,
+                                     args=(voice, voice_results), daemon=True).start()
             else:
                 print(f'Status: {incident.state}', flush=True)
     except KeyboardInterrupt:

@@ -1,4 +1,5 @@
-
+"""Reusable voice confirmation for the Odyssey Guardian fall workflow."""
+from pathlib import Path
 import numpy as np
 import sounddevice as sd
 import speech_recognition as sr
@@ -8,120 +9,53 @@ from speechbrain.inference.speaker import SpeakerRecognition
 
 SAMPLE_RATE = 16000
 DURATION = 4
-THRESHOLD = 0.25  # SpeechBrain example default; NOT security-calibrated
+THRESHOLD = 0.25
 
-print("Loading pretrained speaker verification model...")
+class VoiceVerifier:
+    def __init__(self, model_dir=None):
+        model_dir = Path(model_dir or Path(__file__).parent / 'pretrained_models' / 'voice')
+        self.model = SpeakerRecognition.from_hparams(source='speechbrain/spkrec-ecapa-voxceleb', savedir=str(model_dir), local_strategy=LocalStrategy.COPY)
+        self.recognizer = sr.Recognizer()
+        self.owner_voice = None
 
-model = SpeakerRecognition.from_hparams(
-    source="speechbrain/spkrec-ecapa-voxceleb",
-    savedir="pretrained_models/voice",
-    local_strategy=LocalStrategy.COPY
-)
+    def record_voice(self, prompt):
+        print(f'\n{prompt}')
+        input('Press Enter to begin recording...')
+        print('Recording...')
+        audio = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype='float32')
+        sd.wait()
+        voice = audio.flatten()
+        if np.sqrt(np.mean(voice ** 2)) < 0.005:
+            raise ValueError('No clear speech detected. Try again.')
+        return voice
 
-recognizer = sr.Recognizer()
+    def enroll(self):
+        self.owner_voice = self.record_voice("Owner: say 'I'm okay'")
 
+    def recognize_words(self, voice):
+        pcm = (np.clip(voice, -1, 1) * 32767).astype(np.int16).tobytes()
+        try:
+            return self.recognizer.recognize_google(sr.AudioData(pcm, SAMPLE_RATE, 2)).lower()
+        except (sr.UnknownValueError, sr.RequestError):
+            return ''
 
-def record_voice(message):
-    print("\n" + message)
-    input("Press Enter to begin recording...")
+    def verify_response(self, response):
+        if self.owner_voice is None:
+            raise RuntimeError('VoiceVerifier must be enrolled before verification')
+        owner = torch.from_numpy(self.owner_voice).unsqueeze(0)
+        reply = torch.from_numpy(response).unsqueeze(0)
+        with torch.inference_mode():
+            score, prediction = self.model.verify_batch(owner, reply, threshold=THRESHOLD)
+        text = self.recognize_words(response)
+        said_okay = any(p in text for p in ("i'm okay", "i'm ok", 'i am okay', 'i am ok'))
+        return float(score.item()), bool(prediction.item()), said_okay, text
 
-    print("Recording...")
-    audio = sd.rec(
-        int(DURATION * SAMPLE_RATE),
-        samplerate=SAMPLE_RATE,
-        channels=1,
-        dtype="float32"
-    )
-    sd.wait()
+    def confirm_fall(self):
+        return self.verify_response(self.record_voice("System: Are you okay? Say 'I'm okay' or 'Help'."))
 
-    voice = audio.flatten()
-
-    if np.sqrt(np.mean(voice ** 2)) < 0.005:
-        raise ValueError("No clear speech detected. Try again.")
-
-    return voice
-
-
-def recognize_words(voice):
-    pcm = (np.clip(voice, -1, 1) * 32767).astype(
-        np.int16
-    ).tobytes()
-
-    audio_data = sr.AudioData(pcm, SAMPLE_RATE, 2)
-
-    try:
-        return recognizer.recognize_google(audio_data).lower()
-    except (sr.UnknownValueError, sr.RequestError):
-        return ""
-
-
-def verify_speaker(owner_voice, response_voice):
-    owner = torch.from_numpy(owner_voice).unsqueeze(0)
-    response = torch.from_numpy(response_voice).unsqueeze(0)
-
-    with torch.inference_mode():
-        score, prediction = model.verify_batch(
-            owner,
-            response,
-            threshold=THRESHOLD
-        )
-
-    return (
-        float(score.item()),
-        bool(prediction.item())
-    )
-
-
-# STEP 1: Register the watch owner
-print("\n=== VOICE REGISTRATION ===")
-
-owner_voice = record_voice(
-    "Owner: Say 'I'm okay,"
-)
-
-print("Voice registered for this session!")
-
-
-# STEP 2: Simulate a fall
-while True:
-    print("\n=== FALL DETECTED ===")
-    print("System: Are you okay? Please respond.")
-
-    response = record_voice(
-        "Say 'I'm okay, '"
-    )
-
-    # Identify the speaker
-    score, is_owner = verify_speaker(
-        owner_voice,
-        response
-    )
-
-    # Understand the response
-    spoken_text = recognize_words(response)
-
-    print(f"\nRecognized speech: {spoken_text}")
-    print(f"Speaker similarity score: {score:.3f}")
-
-    said_okay = any(
-        phrase in spoken_text
-        for phrase in [
-            "i'm okay",
-            "i'm ok",
-            "i am okay",
-            "i am ok"
-        ]
-    )
-
-    if is_owner and said_okay:
-        print("Owner voice tentatively verified.")
-        print("Request physical confirmation.")
-        print("Emergency alert NOT automatically cancelled.")
-    else:
-        print("Owner confirmation NOT verified.")
-        print("Keep emergency alert active.")
-        print("Notify caregiver if confirmation times out.")
-
-    again = input("\nTest another person? (y/n): ")
-    if again.lower() != "y":
-        break
+if __name__ == '__main__':
+    verifier = VoiceVerifier()
+    print('=== VOICE REGISTRATION ===')
+    verifier.enroll()
+    print('Voice registered for this session.')
+    print(verifier.confirm_fall())

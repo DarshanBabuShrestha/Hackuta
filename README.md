@@ -55,3 +55,13 @@ BITS-2 contains separate gravity-included acceleration (`acg`) and gyroscope (`g
 Training, validation, and test are separated by participant. Fall labels are inherited from entire recordings, so some fall windows may show pre- or post-fall motion. Different sensor placement, range, filtering, sample timing, and synchronization between BITS-2 and the Arduino can cause substantial accuracy loss. The 32 samples cover about 0.64 seconds at the sketch's nominal 50 Hz; missed pairs lengthen that interval. These conditions mean offline test metrics are **not** live sensitivity, false-alarm rate, or clinical validation. This is an experimental hackathon prototype, not a certified safety device.
 
 The held-out participant test split for this window model reached 79.7% accuracy and 61.5% fall recall (`ml/odyssey_window_results.json`). The original recording-level report states 92.36% accuracy and 83.33% fall recall; these are different tasks and should not be compared as if they measure live detection. Arduino acceleration and gyro reads are sequential rather than hardware synchronized. Live sampling and firmware compilation still require verification on the board.
+
+## Voice confirmation integration
+
+Use `--voice-confirmation` to enroll the owner for the current session and start a microphone prompt when a fall is detected. A response containing “I'm okay” from the enrolled voice tentatively cancels the incident; otherwise the caregiver alert remains active.
+
+```powershell
+python -m backend.main --simulate path\to\imu.csv --voice-confirmation
+```
+
+This is an experimental hackathon feature, not secure identity verification or a medical safety guarantee. Speech transcription uses Google's recognition service.
