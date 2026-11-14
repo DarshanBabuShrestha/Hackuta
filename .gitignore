@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Dataset
+full_dataset
+Dataset/
+dataset/
+
+# Generated files
+*.log
+
+# IDE / OS
+.vscode/
+.DS_Store
+Thumbs.db

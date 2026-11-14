@@ -1,0 +1,157 @@
+{
+  "method": "32-sample non-overlapping windows; participant-level split",
+  "feature_names": [
+    "acg_x_mean",
+    "acg_x_std",
+    "acg_x_p05",
+    "acg_x_median",
+    "acg_x_p95",
+    "acg_x_max_abs",
+    "acg_x_mean_abs_step",
+    "acg_y_mean",
+    "acg_y_std",
+    "acg_y_p05",
+    "acg_y_median",
+    "acg_y_p95",
+    "acg_y_max_abs",
+    "acg_y_mean_abs_step",
+    "acg_z_mean",
+    "acg_z_std",
+    "acg_z_p05",
+    "acg_z_median",
+    "acg_z_p95",
+    "acg_z_max_abs",
+    "acg_z_mean_abs_step",
+    "acg_mag_mean",
+    "acg_mag_std",
+    "acg_mag_p05",
+    "acg_mag_median",
+    "acg_mag_p95",
+    "acg_mag_max_abs",
+    "acg_mag_mean_abs_step",
+    "gyro_x_mean",
+    "gyro_x_std",
+    "gyro_x_p05",
+    "gyro_x_median",
+    "gyro_x_p95",
+    "gyro_x_max_abs",
+    "gyro_x_mean_abs_step",
+    "gyro_y_mean",
+    "gyro_y_std",
+    "gyro_y_p05",
+    "gyro_y_median",
+    "gyro_y_p95",
+    "gyro_y_max_abs",
+    "gyro_y_mean_abs_step",
+    "gyro_z_mean",
+    "gyro_z_std",
+    "gyro_z_p05",
+    "gyro_z_median",
+    "gyro_z_p95",
+    "gyro_z_max_abs",
+    "gyro_z_mean_abs_step",
+    "gyro_mag_mean",
+    "gyro_mag_std",
+    "gyro_mag_p05",
+    "gyro_mag_median",
+    "gyro_mag_p95",
+    "gyro_mag_max_abs",
+    "gyro_mag_mean_abs_step"
+  ],
+  "window_size": 32,
+  "recordings_skipped": 5,
+  "participants": {
+    "train": [
+      "user1",
+      "user10",
+      "user11",
+      "user14",
+      "user15",
+      "user2",
+      "user21",
+      "user22",
+      "user23",
+      "user24",
+      "user26",
+      "user27",
+      "user29",
+      "user32",
+      "user34",
+      "user35",
+      "user37",
+      "user38",
+      "user39",
+      "user4",
+      "user41",
+      "user6",
+      "user7",
+      "user8"
+    ],
+    "validation": [
+      "user13",
+      "user16",
+      "user19",
+      "user25",
+      "user28",
+      "user31",
+      "user36",
+      "user40"
+    ],
+    "test": [
+      "user12",
+      "user17",
+      "user18",
+      "user20",
+      "user3",
+      "user30",
+      "user33",
+      "user5",
+      "user9"
+    ]
+  },
+  "train": {
+    "windows": 12066,
+    "accuracy": 0.9985082048731975,
+    "fall_recall": 0.9983637213651239,
+    "confusion_matrix_adl_fall": [
+      [
+        7777,
+        11
+      ],
+      [
+        7,
+        4271
+      ]
+    ]
+  },
+  "validation": {
+    "windows": 3022,
+    "accuracy": 0.7819324950363997,
+    "fall_recall": 0.650251256281407,
+    "confusion_matrix_adl_fall": [
+      [
+        1716,
+        311
+      ],
+      [
+        348,
+        647
+      ]
+    ]
+  },
+  "test": {
+    "windows": 4037,
+    "accuracy": 0.7966311617537776,
+    "fall_recall": 0.6148693904889484,
+    "confusion_matrix_adl_fall": [
+      [
+        2298,
+        246
+      ],
+      [
+        575,
+        918
+      ]
+    ]
+  }
+}
