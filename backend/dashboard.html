@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Odyssey Guardian</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #e9f1f5; background: #101c28; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 28px; }
+    main { max-width: 960px; margin: auto; }
+    header, .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    h1 { margin: 0; font-size: 1.6rem; }
+    h2 { font-size: 1rem; margin: 0 0 16px; color: #a9c2d1; }
+    p { margin: 8px 0 0; color: #a9c2d1; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 24px; }
+    .card { background: #1a2b39; border: 1px solid #304757; border-radius: 14px; padding: 20px; }
+    .wide { grid-column: 1 / -1; }
+    .value { font-size: 1.45rem; font-weight: 700; }
+    .muted { color: #a9c2d1; }
+    .pill { padding: 6px 10px; border-radius: 999px; background: #3a4651; font-size: .85rem; }
+    .pill.live { background: #17684e; }
+    .pill.alert { background: #a63a32; }
+    .buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    button { cursor: pointer; border: 0; border-radius: 9px; padding: 11px 16px; font: inherit; font-weight: 700; }
+    button:disabled { opacity: .45; cursor: default; }
+    #cancel { background: #80dec0; color: #10291f; }
+    #help { background: #ffac89; color: #351b13; }
+    #enroll { background: #a8c8ff; color: #10233f; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li { padding: 9px 0; border-top: 1px solid #304757; }
+    li:first-child { border-top: 0; }
+    time { color: #a9c2d1; margin-right: 12px; }
+    footer { margin-top: 22px; font-size: .85rem; color: #a9c2d1; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>Odyssey Guardian</h1><p id="source">Waiting for backend</p><p id="sensor-status">Waiting for sensor</p></div>
+    <span id="connection" class="pill">Connecting</span>
+  </header>
+  <div class="grid">
+    <section class="card wide">
+      <div class="row"><h2>Incident status</h2><span id="updated" class="muted">No data yet</span></div>
+      <div id="incident" class="value">Waiting for backend</div><p id="incident-help">A confirmation prompt will appear for a possible incident.</p>
+      <div class="buttons">
+        <button id="cancel" disabled>I'm okay</button>
+        <button id="help" disabled>Need help</button>
+      </div>
+    </section>
+    <section class="card wide"><h2>Voice confirmation</h2><div id="voice" class="value">Waiting for backend</div><p id="voice-help">Uses this computer's microphone when a possible fall starts confirmation.</p><div class="buttons"><button id="enroll" disabled>Record my voice</button></div></section>
+    <section class="card"><h2>Tremor-like motion</h2><div id="tremor" class="value">Waiting for data</div></section>
+    <section class="card"><h2>Seizure-like motion</h2><div id="seizure" class="value">Waiting for data</div></section>
+    <section class="card wide"><h2>Motion · axis RMS (g)</h2><div id="motion" class="value">Waiting for data</div><p id="windows">0 windows received</p></section>
+    <section class="card wide"><h2>Recent events</h2><ul id="events"><li class="muted">No events yet</li></ul></section>
+  </div>
+  <footer>Experimental motion demo. No caregiver is contacted. Keep this dashboard on your own computer.</footer>
+</main>
+<script>
+  const byId = id => document.getElementById(id);
+  let socket;
+  let retry;
+  function render(data) {
+    byId('source').textContent = data.source;
+    byId('sensor-status').textContent = data.sensor_status;
+    const incidentType = data.incident_type === 'seizure_like_motion' ? 'Seizure-like motion' : 'Fall';
+    byId('incident').textContent = data.incident === 'MONITORING' ? 'Monitoring' : `${incidentType} · ${data.incident.replaceAll('_', ' ')}`;
+    byId('incident-help').textContent = ['CONFIRMING', 'VERIFYING'].includes(data.incident)
+      ? `Possible ${incidentType.toLowerCase()} detected. Are you okay? Use a button or respond by voice if enrolled.`
+      : data.incident === 'CAREGIVER_PENDING' ? 'No confirmation was received; caregiver alert required.'
+      : 'A confirmation prompt will appear for a possible fall or seizure-like motion.';
+    byId('voice').textContent = data.voice_enabled ? data.voice_status : 'Off';
+    const microphone = data.voice_device || "this computer's microphone";
+    byId('voice-help').textContent = !data.voice_enabled ? 'Voice confirmation is not enabled for this session.'
+      : data.voice_status.startsWith('Listening') || data.voice_status.startsWith('Recording enrollment') ? `Speak now into ${microphone}: say "I'm okay".`
+      : data.voice_enrolled ? `Using ${microphone}. The microphone will listen after a possible fall.`
+      : !data.voice_can_enroll ? 'Preparing the computer microphone for enrollment.'
+      : `Using ${microphone}. Click Record my voice, then say "I'm okay".`;
+    byId('enroll').disabled = !data.voice_can_enroll || data.incident !== 'MONITORING';
+    byId('updated').textContent = data.updated_at ? `Updated ${new Date(data.updated_at).toLocaleTimeString()}` : 'No data yet';
+    byId('tremor').textContent = data.tremor ? `${data.tremor.label.replaceAll('_', ' ')} · ${data.tremor.peak_hz.toFixed(1)} Hz` : data.enabled.tremor ? 'Waiting for data' : 'Off in this mode';
+    byId('seizure').textContent = data.seizure ? `${data.seizure.label.replaceAll('_', ' ')} · ${Math.round(data.seizure.probability * 100)}%` : data.enabled.seizure ? 'Waiting for data' : 'Off in this mode';
+    byId('motion').textContent = data.motion ? `X ${data.motion.x_g_rms.toFixed(3)}  ·  Y ${data.motion.y_g_rms.toFixed(3)}  ·  Z ${data.motion.z_g_rms.toFixed(3)}` : 'Waiting for data';
+    byId('windows').textContent = `${data.windows} windows received`;
+    byId('cancel').disabled = byId('help').disabled = !['CONFIRMING', 'VERIFYING'].includes(data.incident);
+    const events = byId('events');
+    events.replaceChildren();
+    if (!data.events.length) {
+      const item = document.createElement('li'); item.textContent = 'No events yet'; events.append(item);
+    }
+    for (const event of data.events) {
+      const item = document.createElement('li');
+      const time = document.createElement('time'); time.textContent = event.time;
+      item.append(time, document.createTextNode(event.message)); events.append(item);
+    }
+  }
+  function connect() {
+    socket = new WebSocket(`ws://${location.host}/ws`);
+    socket.onopen = () => { byId('connection').textContent = 'Live'; byId('connection').className = 'pill live'; };
+    socket.onmessage = event => render(JSON.parse(event.data));
+    socket.onclose = () => {
+      byId('connection').textContent = 'Disconnected'; byId('connection').className = 'pill alert';
+      byId('cancel').disabled = byId('help').disabled = true;
+      byId('enroll').disabled = true;
+      retry = setTimeout(connect, 2000);
+    };
+  }
+  for (const [id, command] of [['cancel', 'cancel'], ['help', 'help']]) {
+    byId(id).onclick = () => { if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({command})); };
+  }
+  byId('enroll').onclick = () => {
+    if (socket.readyState === WebSocket.OPEN) {
+      byId('enroll').disabled = true;
+      socket.send(JSON.stringify({command: 'enroll_voice'}));
+    }
+  };
+  connect();
+</script>
+</body>
+</html>

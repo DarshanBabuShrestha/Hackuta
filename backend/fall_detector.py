@@ -34,5 +34,5 @@ class FallDetector:
         trigger = label == 'fall' and now - self.last_trigger >= self.cooldown
         if trigger:
             self.last_trigger = now
-        LOG.info('Fall probability: %.3f; class: %s; trigger: %s', probability, label, trigger)
+        LOG.info('Fall class: %s; trigger: %s', label, trigger)
         return label, probability, trigger

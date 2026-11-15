@@ -33,8 +33,9 @@ def parse_message(line):
 
 
 class SerialBridge:
-    def __init__(self, port, baud=115200, window_size=WINDOW_SIZE, hop=16):
+    def __init__(self, port, baud=115200, window_size=WINDOW_SIZE, hop=16, on_status=None):
         self.port, self.baud, self.hop = port, baud, hop
+        self.on_status = on_status or (lambda status: None)
         self.buffer = deque(maxlen=window_size)
         self.count = 0
         self.last_timestamp = None
@@ -60,20 +61,55 @@ class SerialBridge:
             try:
                 with serial.Serial(self.port, self.baud, timeout=1) as device:
                     LOG.info('Arduino connected: %s', self.port)
-                    LOG.info('IMU streaming...')
+                    LOG.info('Waiting for IMU samples...')
+                    self.on_status('Connected; waiting for IMU samples')
                     self.buffer.clear()
                     self.count = 0
                     self.last_timestamp = None
+                    last_data = time.monotonic()
+                    receiving = False
+                    bad_format = False
+                    silent = False
+                    waiting_reported = False
                     while True:
                         raw = device.readline()
                         if not raw:
+                            if time.monotonic() - last_data >= 3 and not silent:
+                                self.on_status('No serial data; check the uploaded sketch')
+                                LOG.warning('No serial data from %s; check the uploaded sketch', self.port)
+                                silent = True
+                            continue
+                        last_data = time.monotonic()
+                        silent = False
+                        if raw.startswith(b'HEADER,'):
+                            continue
+                        if raw.startswith(b'STATUS,WAITING_FOR_IMU'):
+                            self.on_status('Arduino running; waiting for IMU readings')
+                            if not waiting_reported:
+                                LOG.warning('Arduino running but no IMU readings are available')
+                                waiting_reported = True
                             continue
                         try:
-                            window = self.push(parse_message(raw))
+                            sample = parse_message(raw)
+                            if not receiving:
+                                LOG.info('IMU samples received')
+                                self.on_status('Receiving IMU samples')
+                                receiving = True
+                            waiting_reported = False
+                            window = self.push(sample)
                             if window is not None:
                                 yield window
                         except (ValueError, UnicodeError) as exc:
+                            if not bad_format:
+                                if raw.startswith(b'ERROR,IMU_INIT_FAILED'):
+                                    status = 'Arduino IMU initialization failed'
+                                else:
+                                    status = 'Unsupported serial format; upload OdysseyGuardian_FallDetection.ino'
+                                self.on_status(status)
+                                LOG.warning('%s; first line: %r', status, raw[:100])
+                                bad_format = True
                             LOG.warning('Skipping malformed message: %s', exc)
             except (serial.SerialException, OSError) as exc:
+                self.on_status('Serial disconnected; retrying')
                 LOG.warning('Serial disconnected: %s; retrying in 2 seconds', exc)
                 time.sleep(2)

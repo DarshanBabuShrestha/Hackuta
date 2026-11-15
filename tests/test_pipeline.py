@@ -66,7 +66,7 @@ def test_incident_cancel_expire_and_duplicate():
     assert not incident.candidate()
     assert incident.state == 'CONFIRMING'
     assert incident.cancel()
-    assert incident.state == 'CANCELLED'
+    assert incident.state == 'MONITORING'
     assert not incident.cancel()
     assert incident.candidate()
     now[0] = 16

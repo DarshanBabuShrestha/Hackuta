@@ -8,13 +8,16 @@ class IncidentManager:
     def __init__(self, duration=15, clock=time.monotonic, emit=print):
         self.duration, self.clock, self.emit = duration, clock, emit
         self.state = 'MONITORING'
+        self.kind = None
         self.deadline = None
 
-    def candidate(self, prompt=None, defer_timer=False):
+    def candidate(self, prompt=None, defer_timer=False, kind='fall'):
         if self.state != 'MONITORING':
             return False
+        self.kind = kind
         self.state = 'CANDIDATE'
-        self.emit('FALL DETECTED')
+        label = 'SEIZURE-LIKE MOTION' if kind == 'seizure_like_motion' else 'FALL'
+        self.emit(f'{label} DETECTED')
         self.state = 'CONFIRMING'
         self.deadline = None if defer_timer else self.clock() + self.duration
         self.emit(prompt or 'Are you okay? Type c then Enter to cancel.')
@@ -41,6 +44,7 @@ class IncidentManager:
         if self.state not in ('CONFIRMING', 'VERIFYING'):
             return False
         self.state = 'MONITORING'
+        self.kind = None
         self.deadline = None
         self.emit('Incident cancelled by wearer; status: MONITORING')
         return True

@@ -17,6 +17,9 @@ class VoiceVerifier:
         self.model = SpeakerRecognition.from_hparams(source='speechbrain/spkrec-ecapa-voxceleb', savedir=str(model_dir), local_strategy=LocalStrategy.COPY)
         self.recognizer = sr.Recognizer()
         self.owner_voice = None
+        self.recognition_error = None
+        self.last_level = None
+        self.input_device_name = sd.query_devices(kind='input')['name']
 
     def record_voice(self, prompt, wait_for_enter=True, on_started=None, on_recorded=None):
         print(f'\n{prompt}')
@@ -30,18 +33,30 @@ class VoiceVerifier:
         voice = audio.flatten()
         if on_recorded:
             on_recorded()
-        if np.sqrt(np.mean(voice ** 2)) < 0.005:
-            raise ValueError('No clear speech detected. Try again.')
+        level = float(np.sqrt(np.mean(voice ** 2)))
+        self.last_level = level
+        if level < 0.005:
+            raise ValueError(f'No clear speech detected (microphone level {level:.4f}).')
         return voice
 
-    def enroll(self):
-        self.owner_voice = self.record_voice("Owner: say 'I'm okay'")
+    def enroll(self, wait_for_enter=True, on_started=None, on_recorded=None):
+        self.owner_voice = self.record_voice(
+            "Owner: say 'I'm okay'",
+            wait_for_enter=wait_for_enter,
+            on_started=on_started,
+            on_recorded=on_recorded,
+        )
 
     def recognize_words(self, voice):
         pcm = (np.clip(voice, -1, 1) * 32767).astype(np.int16).tobytes()
+        self.recognition_error = None
         try:
             return self.recognizer.recognize_google(sr.AudioData(pcm, SAMPLE_RATE, 2)).lower()
-        except (sr.UnknownValueError, sr.RequestError):
+        except sr.UnknownValueError:
+            self.recognition_error = 'Speech was not understood'
+            return ''
+        except sr.RequestError:
+            self.recognition_error = 'Speech recognition service unavailable'
             return ''
 
     def verify_response(self, response):
@@ -54,7 +69,7 @@ class VoiceVerifier:
         score = float(score.item())
         text = self.recognize_words(response)
         said_okay = any(p in text for p in ("i'm okay", "i'm ok", 'i am okay', 'i am ok'))
-        return score, score >= THRESHOLD, said_okay, text
+        return score, score >= THRESHOLD, said_okay, text, self.recognition_error
 
     def confirm_fall(self, on_started=None, on_recorded=None):
         response = self.record_voice(
