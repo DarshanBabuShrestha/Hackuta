@@ -9,7 +9,7 @@ from speechbrain.inference.speaker import SpeakerRecognition
 
 SAMPLE_RATE = 16000
 DURATION = 4
-THRESHOLD = 0.25
+THRESHOLD = 0.45
 
 class VoiceVerifier:
     def __init__(self, model_dir=None):
@@ -18,13 +18,18 @@ class VoiceVerifier:
         self.recognizer = sr.Recognizer()
         self.owner_voice = None
 
-    def record_voice(self, prompt):
+    def record_voice(self, prompt, wait_for_enter=True, on_started=None, on_recorded=None):
         print(f'\n{prompt}')
-        input('Press Enter to begin recording...')
+        if wait_for_enter:
+            input('Press Enter to begin recording...')
         print('Recording...')
+        if on_started:
+            on_started()
         audio = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype='float32')
         sd.wait()
         voice = audio.flatten()
+        if on_recorded:
+            on_recorded()
         if np.sqrt(np.mean(voice ** 2)) < 0.005:
             raise ValueError('No clear speech detected. Try again.')
         return voice
@@ -45,13 +50,20 @@ class VoiceVerifier:
         owner = torch.from_numpy(self.owner_voice).unsqueeze(0)
         reply = torch.from_numpy(response).unsqueeze(0)
         with torch.inference_mode():
-            score, prediction = self.model.verify_batch(owner, reply, threshold=THRESHOLD)
+            score, _ = self.model.verify_batch(owner, reply, threshold=THRESHOLD)
+        score = float(score.item())
         text = self.recognize_words(response)
         said_okay = any(p in text for p in ("i'm okay", "i'm ok", 'i am okay', 'i am ok'))
-        return float(score.item()), bool(prediction.item()), said_okay, text
+        return score, score >= THRESHOLD, said_okay, text
 
-    def confirm_fall(self):
-        return self.verify_response(self.record_voice("System: Are you okay? Say 'I'm okay' or 'Help'."))
+    def confirm_fall(self, on_started=None, on_recorded=None):
+        response = self.record_voice(
+            "System: Say 'I'm okay' within 4 seconds.",
+            wait_for_enter=False,
+            on_started=on_started,
+            on_recorded=on_recorded,
+        )
+        return self.verify_response(response)
 
 if __name__ == '__main__':
     verifier = VoiceVerifier()

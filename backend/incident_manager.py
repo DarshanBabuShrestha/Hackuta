@@ -1,6 +1,8 @@
 """Non-blocking incident confirmation state machine."""
 import time
 
+CAPTURE_COMPLETION_GRACE = 0.5
+
 
 class IncidentManager:
     def __init__(self, duration=15, clock=time.monotonic, emit=print):
@@ -8,29 +10,53 @@ class IncidentManager:
         self.state = 'MONITORING'
         self.deadline = None
 
-    def candidate(self):
-        if self.state not in ('MONITORING', 'CANCELLED'):
+    def candidate(self, prompt=None, defer_timer=False):
+        if self.state != 'MONITORING':
             return False
         self.state = 'CANDIDATE'
         self.emit('FALL DETECTED')
         self.state = 'CONFIRMING'
-        self.deadline = self.clock() + self.duration
-        self.emit('Asking for confirmation: Are you okay? Type c then Enter to cancel.')
+        self.deadline = None if defer_timer else self.clock() + self.duration
+        self.emit(prompt or 'Are you okay? Type c then Enter to cancel.')
+        return True
+
+    def start_response_window(self):
+        if self.state != 'CONFIRMING':
+            return False
+        # Allow the audio callback to return control after its exact-length
+        # capture before timing out the incident.
+        self.deadline = self.clock() + self.duration + CAPTURE_COMPLETION_GRACE
+        return True
+
+    def response_captured(self):
+        """Pause the response timeout while a captured answer is verified."""
+        if self.state != 'CONFIRMING':
+            return False
+        self.state = 'VERIFYING'
+        self.deadline = None
+        self.emit('Voice captured; verifying response.')
         return True
 
     def cancel(self):
-        if self.state != 'CONFIRMING':
+        if self.state not in ('CONFIRMING', 'VERIFYING'):
             return False
-        self.state = 'CANCELLED'
-        self.emit('Incident cancelled by wearer')
+        self.state = 'MONITORING'
+        self.deadline = None
+        self.emit('Incident cancelled by wearer; status: MONITORING')
+        return True
+
+    def caregiver_pending(self):
+        if self.state not in ('CONFIRMING', 'VERIFYING'):
+            return False
+        self.state = 'CAREGIVER_PENDING'
+        self.deadline = None
+        self.emit('CAREGIVER ALERT REQUIRED')
         return True
 
     def tick(self):
-        if self.state != 'CONFIRMING':
+        if self.state != 'CONFIRMING' or self.deadline is None:
             return
         remaining = self.deadline - self.clock()
         if remaining <= 0:
-            self.state = 'CAREGIVER_PENDING'
             self.emit('No response received.')
-            self.emit('CAREGIVER NOTIFICATION REQUIRED')
-            return
+            self.caregiver_pending()

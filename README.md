@@ -65,6 +65,21 @@ python -m backend.main --simulate path\to\imu.csv --voice-confirmation
 ```
 
 This is an experimental hackathon feature, not secure identity verification or a medical safety guarantee. Speech transcription uses Google's recognition service.
+
 ## Experimental seizure-like movement score
 
 The backend loads `ml/seizure/seizure_models/epilepsy_rf.joblib`, buffers the acceleration axes from the live 50 Hz stream, resamples to the artifact's 16 Hz cadence, and calls the exact `features()` function in `ml/seizure/train_epilepsy_models.py`. It reports a probability and class after the 206-sample (about 12.9-second) buffer fills. `--seizure-threshold` changes the displayed class cutoff (default `0.5`). This score is experimental only: model training used staged movements, and Arduino units, orientation, placement, and preprocessing have not been calibrated to the dataset. It must not be treated as seizure detection or used for medical decisions.
+
+## Run detector modes
+
+`--mode all` runs fall, tremor-like motion, and simulated seizure-like motion (the default). Select a single mode to test only that detector. Voice confirmation applies to fall mode and all mode.
+
+```powershell
+py -m backend.main --port COM7 --mode all --voice-confirmation
+py -m backend.main --port COM7 --mode fall --voice-confirmation
+py -m backend.main --port COM7 --mode tremor
+py -m backend.main --port COM7 --mode seizure
+```
+
+The tremor-like detector is a five-second spectral motion heuristic, not a clinically validated tremor sensor. `--mode epilepsy` is also accepted as an alias for `--mode seizure`.
+
