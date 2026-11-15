@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Odyssey Guardian · Caregiver</title>
+  <title>Darshan's Care Giver</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <style>
     :root { font-family: system-ui, sans-serif; color: #eef4f8; background: #101c28; }
@@ -31,7 +31,7 @@
     body { min-height: 100vh; padding: clamp(18px,4vw,48px); background: radial-gradient(ellipse at 50% -20%,#285064 0,#102536 42%,#07131f 78%); }
     main { max-width: 900px; }
     h1 { padding: 38px 40px 25px; border: 1px solid #a68045; background: linear-gradient(110deg,#07131fee,#123344dc), repeating-linear-gradient(90deg,transparent 0 54px,#c49a5025 55px 56px); color: #f4e8cb; font-size: clamp(2.3rem,6vw,4.4rem); line-height: 1; letter-spacing: -.045em; text-shadow: 0 4px 24px #000a; }
-    h1::before { content: 'ODYSSEY  ·  CAREGIVER VOYAGE'; display: block; margin-bottom: 14px; color: #d0aa65; font: 600 .68rem system-ui,sans-serif; letter-spacing: .24em; }
+    h1::before { content: 'ODYSAFE  ·  CAREGIVER PORTAL'; display: block; margin-bottom: 14px; color: #d0aa65; font: 600 .68rem system-ui,sans-serif; letter-spacing: .24em; }
     p { color: #b4c1bd; }
     .card { position:relative; overflow:hidden; border-radius:3px; border-color:#876c43; background:linear-gradient(145deg,#172a34f5,#0d1d29f7); box-shadow:0 12px 32px #0005,inset 0 1px #f3d99b0c; }
     .card::before { content:''; position:absolute; top:0; left:0; width:42px; height:2px; background:#d0aa65; }
@@ -43,8 +43,8 @@
 </head>
 <body>
 <main>
-  <h1>Caregiver alerts</h1>
-  <p>Keep this page open to receive alerts. Allow notifications and sound on this device when prompted. An acknowledgment means you received the alert; arrange assistance directly.</p>
+  <h1>Darshan's Care Giver</h1>
+  <p>Darshan might have fallen. Review the location provided below and check on him as soon as you can. Keep this page open to receive alerts.</p>
   <section class="card" id="login">
     <label for="key">Caregiver access key</label>
     <input id="key" type="password" autocomplete="off">
@@ -59,7 +59,7 @@
     <button id="acknowledge" disabled>Acknowledge alert</button>
   </section>
   <section class="card"><div class="status" id="idle">No active alert</div><p>This page updates from the wearer's sensor session.</p></section>
-  <section class="card"><div class="status">Wearer location</div><p id="location-status">Location unavailable</p><div id="map" aria-label="Interactive OpenStreetMap showing wearer location"></div><p id="map-error" hidden>Map tiles could not be loaded. Check the network connection; coordinates are still available below.</p><p id="location-detail"></p><a id="maps-link" target="_blank" rel="noopener noreferrer" hidden>Open in Google Maps</a></section>
+  <section class="card"><div class="status">Darshan's location</div><p id="location-status">Location unavailable</p><div id="map" aria-label="Interactive OpenStreetMap showing Darshan's location"></div><p id="map-error" hidden>Map tiles could not be loaded. Check the network connection; coordinates are still available below.</p><p id="location-detail"></p><a id="maps-link" target="_blank" rel="noopener noreferrer" hidden>Open in Google Maps</a></section>
 </main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
