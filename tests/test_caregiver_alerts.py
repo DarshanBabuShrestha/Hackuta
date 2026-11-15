@@ -1,7 +1,9 @@
 import asyncio
+import io
 import json
 import queue
 import time
+import urllib.error
 import urllib.parse
 from pathlib import Path
 
@@ -59,11 +61,12 @@ def test_timeout_requests_one_call_and_rejects_late_acknowledgment():
         time.sleep(.001)
     assert called == ['seizure_like_motion']
     assert alerts.alert['status'] == 'CALL_QUEUED'
+    assert alerts.alert['detail'] == 'Call initiated'
     assert alerts.alert['call_sid'] == 'CA123'
     assert not alerts.acknowledge(alert_id)
 
 
-def test_call_uses_configured_number_and_inline_twiml(monkeypatch):
+def test_call_uses_configured_number_and_trial_compatible_twiml_url(monkeypatch):
     for name, value in {
         'TWILIO_ACCOUNT_SID': 'AC123',
         'TWILIO_AUTH_TOKEN': 'secret',
@@ -94,8 +97,70 @@ def test_call_uses_configured_number_and_inline_twiml(monkeypatch):
     assert request.full_url.endswith('/Accounts/AC123/Calls.json')
     assert body['To'] == ['+15550002222']
     assert body['From'] == ['+15550001111']
-    assert 'possible fall' in body['Twiml'][0]
+    assert body['Url'] == ['https://demo.twilio.com/docs/voice.xml']
+    assert 'Twiml' not in body
     assert timeout == 8
+
+
+def test_call_uses_custom_twiml_url(monkeypatch):
+    for name, value in {
+        'TWILIO_ACCOUNT_SID': 'AC123',
+        'TWILIO_AUTH_TOKEN': 'secret',
+        'TWILIO_FROM_NUMBER': '+15550001111',
+        'ODYSSEY_CAREGIVER_PHONE': '+15550002222',
+        'TWILIO_TWIML_URL': 'https://handler.twilio.com/twiml/example',
+    }.items():
+        monkeypatch.setenv(name, value)
+    captured = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def read(self, *_):
+            return json.dumps({'sid': 'CA456'}).encode()
+
+    def fake_urlopen(request, timeout):
+        captured.append(request)
+        return Response()
+
+    monkeypatch.setattr('urllib.request.urlopen', fake_urlopen)
+    assert call_caregiver('fall') == 'CA456'
+    body = urllib.parse.parse_qs(captured[0].data.decode())
+    assert body['Url'] == ['https://handler.twilio.com/twiml/example']
+    assert 'Twiml' not in body
+
+
+def test_call_surfaces_twilio_trial_account_error(monkeypatch):
+    for name, value in {
+        'TWILIO_ACCOUNT_SID': 'AC123',
+        'TWILIO_AUTH_TOKEN': 'secret',
+        'TWILIO_FROM_NUMBER': '+15550001111',
+        'ODYSSEY_CAREGIVER_PHONE': '+15550002222',
+    }.items():
+        monkeypatch.setenv(name, value)
+
+    def reject_call(request, timeout):
+        payload = json.dumps({
+            'code': 21219,
+            'message': 'The number is unverified. Trial accounts may only make calls to verified numbers.',
+        }).encode()
+        raise urllib.error.HTTPError(
+            request.full_url, 400, 'Bad Request', {}, io.BytesIO(payload)
+        )
+
+    monkeypatch.setattr('urllib.request.urlopen', reject_call)
+    try:
+        call_caregiver('fall')
+    except RuntimeError as error:
+        message = str(error)
+    else:
+        raise AssertionError('Expected Twilio rejection')
+    assert 'HTTP 400, Twilio code 21219' in message
+    assert 'Trial accounts may only make calls to verified numbers' in message
 
 
 def test_caregiver_websocket_requires_key_and_only_accepts_acknowledgment():

@@ -52,8 +52,25 @@ $env:TWILIO_ACCOUNT_SID = "AC..."
 $env:TWILIO_AUTH_TOKEN = "..."
 $env:TWILIO_FROM_NUMBER = "+15551234567"
 $env:ODYSSEY_CAREGIVER_PHONE = "+15557654321"
+$env:TWILIO_TWIML_URL = "https://handler.twilio.com/twiml/..."
 python -m backend.main --port COM9 --web-host 0.0.0.0
 ```
+
+Twilio trial accounts can call only verified destination numbers. Verify
+`ODYSSEY_CAREGIVER_PHONE` in the Twilio console and use the Twilio-provided trial
+number for `TWILIO_FROM_NUMBER`. Create a TwiML Bin in the Twilio console with:
+
+```xml
+<Response>
+  <Say>Odyssey Guardian alert. The wearer may need immediate assistance. Please check on them now.</Say>
+</Response>
+```
+
+Set `TWILIO_TWIML_URL` to that Bin's public URL. Trial projects can reject the
+inline `Twiml` call parameter, so the backend sends the supported `Url` parameter
+instead. If `TWILIO_TWIML_URL` is omitted, it uses Twilio's public sample voice
+URL; this confirms calling works but plays Twilio's sample message rather than
+the Guardian alert.
 
 For a simulation with `--web`, the replay waits until you click **Start replay** on the wearer dashboard. Wait for **Ready to enroll**, click **Record my voice**, say “I'm okay”, and then start the replay. You can start the replay without voice enrollment if you want to use the manual buttons. This avoids a replayed fall blocking voice enrollment before the model is ready.
 

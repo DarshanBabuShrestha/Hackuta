@@ -5,11 +5,14 @@ import os
 import queue
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
-from xml.sax.saxutils import escape
+
+
+TRIAL_TWIML_URL = 'https://demo.twilio.com/docs/voice.xml'
 
 
 def call_caregiver(kind):
@@ -21,14 +24,13 @@ def call_caregiver(kind):
         raise RuntimeError('Phone call is not configured; set ' +
                            ', '.join(name for name, value in zip(names, values) if not value))
     sid, token, from_number, to_number = values
-    incident = ('a possible fall and seizure-like movement' if kind == 'fall_and_seizure_like_motion'
-                else 'possible seizure-like movement' if kind == 'seizure_like_motion'
-                else 'a possible fall')
-    speech = f'Odyssey Guardian alert. The wearer may need immediate assistance after {incident}. Please check on them now.'
+    # Some Twilio trial projects reject the inline Twiml parameter with error
+    # code 0. A hosted TwiML URL is accepted by the trial Voice flow instead.
+    twiml_url = os.environ.get('TWILIO_TWIML_URL', TRIAL_TWIML_URL).strip()
     body = urllib.parse.urlencode({
         'To': to_number,
         'From': from_number,
-        'Twiml': f'<Response><Say>{escape(speech)}</Say></Response>',
+        'Url': twiml_url,
     }).encode()
     request = urllib.request.Request(
         f'https://api.twilio.com/2010-04-01/Accounts/{urllib.parse.quote(sid)}/Calls.json',
@@ -39,8 +41,22 @@ def call_caregiver(kind):
         },
         method='POST',
     )
-    with urllib.request.urlopen(request, timeout=8) as response:
-        return json.load(response)['sid']
+    try:
+        with urllib.request.urlopen(request, timeout=8) as response:
+            return json.load(response)['sid']
+    except urllib.error.HTTPError as error:
+        # Twilio returns useful JSON for 4xx responses (including trial-account
+        # verification failures). Surface it instead of only "HTTP Error 400".
+        try:
+            payload = json.loads(error.read().decode('utf-8', errors='replace'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            payload = {}
+        detail = payload.get('message') or error.reason
+        code = payload.get('code')
+        code_text = f', Twilio code {code}' if code is not None else ''
+        raise RuntimeError(
+            f'Twilio rejected the call (HTTP {error.code}{code_text}): {detail}'
+        ) from error
 
 
 class CaregiverAlerts:
@@ -89,9 +105,9 @@ class CaregiverAlerts:
                     self.emit(self.alert['detail'])
                 else:
                     self.alert['status'] = 'CALL_QUEUED'
-                    self.alert['detail'] = 'Phone provider accepted the call request'
+                    self.alert['detail'] = 'Call initiated'
                     self.alert['call_sid'] = result
-                    self.emit('Phone provider accepted the caregiver call request')
+                    self.emit('Call initiated')
         if self.alert and self.alert['status'] == 'WAITING' and self.clock() >= self.deadline:
             self.alert['status'] = 'CALLING'
             self.alert['detail'] = 'No caregiver response in 10 seconds; requesting phone call'
