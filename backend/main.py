@@ -26,6 +26,7 @@ from backend.seizure_detector import (DEFAULT_THRESHOLD, HIGH_HZ, LOW_HZ,
 from backend.serial_bridge import SerialBridge, Sample, parse_message
 from backend.speech_output import speak, stop_speaking
 from backend.tremor_detector import TremorMotionDetector
+from backend.wrist_gesture import WristGestureConfig, WristGestureRecognizer
 
 
 VOICE_REJECTED_MESSAGE = 'Voice not recognized. Alerting the caregiver.'
@@ -205,6 +206,30 @@ def main(argv=None):
                         help='Minimum above-average movement interval counted as a burst')
     parser.add_argument('--episode-burst-hysteresis', type=float, default=0.1,
                         help='Relative hysteresis below the average for closing an above-average burst')
+    parser.add_argument('--wrist-gesture-rotation-dps', type=float, default=80.0,
+                        help='Minimum gyro speed in degrees/second to begin a confirmation twist')
+    parser.add_argument('--wrist-gesture-minimum-degrees', type=float, default=35.0,
+                        help='Minimum integrated angle for each confirmation twist')
+    parser.add_argument('--wrist-gesture-axis', choices=('auto', 'x', 'y', 'z'), default='auto',
+                        help='Gyroscope axis used for wrist twists')
+    parser.add_argument('--wrist-gesture-first-direction', choices=('either', 'positive', 'negative'),
+                        default='either', help='Direction required for the first twist')
+    parser.add_argument('--wrist-gesture-minimum-seconds', type=float, default=0.12,
+                        help='Minimum duration for each twist')
+    parser.add_argument('--wrist-gesture-maximum-seconds', type=float, default=1.4,
+                        help='Maximum duration for each twist')
+    parser.add_argument('--wrist-gesture-release-dps', type=float, default=28.0,
+                        help='Smoothed gyro magnitude below which a twist peak is considered released')
+    parser.add_argument('--wrist-gesture-smoothing-samples', type=int, default=3,
+                        help='Moving-average gyro samples used to reject single-sample spikes')
+    parser.add_argument('--wrist-gesture-between-seconds', type=float, default=1.5,
+                        help='Maximum interval between the two twists')
+    parser.add_argument('--wrist-gesture-stillness-dps', type=float, default=18.0,
+                        help='Maximum gyro magnitude considered still')
+    parser.add_argument('--wrist-gesture-stillness-seconds', type=float, default=1.0,
+                        help='Stillness required after two opposite twists')
+    parser.add_argument('--wrist-gesture-sequence-timeout-seconds', type=float, default=5.0,
+                        help='Maximum time allowed for the complete gesture sequence')
     parser.add_argument('--mode', choices=('all', 'fall', 'tremor', 'seizure', 'epilepsy'), default='all',
                         help='Run all detectors or one detector for an isolated test')
     parser.add_argument('--web', action='store_true', help='Serve the local live dashboard')
@@ -250,6 +275,19 @@ def main(argv=None):
         burst_min_seconds=args.episode_burst_min_seconds,
         burst_hysteresis=args.episode_burst_hysteresis,
         minimum_motion_rms_g=args.seizure_motion_rms_g) if run_seizure else None)
+    wrist_gesture = WristGestureRecognizer(WristGestureConfig(
+        rotation_axis=None if args.wrist_gesture_axis == 'auto' else args.wrist_gesture_axis,
+        first_direction=args.wrist_gesture_first_direction,
+        rotation_threshold_dps=args.wrist_gesture_rotation_dps,
+        release_threshold_dps=args.wrist_gesture_release_dps,
+        minimum_rotation_degrees=args.wrist_gesture_minimum_degrees,
+        minimum_rotation_seconds=args.wrist_gesture_minimum_seconds,
+        maximum_rotation_seconds=args.wrist_gesture_maximum_seconds,
+        maximum_gap_between_twists_seconds=args.wrist_gesture_between_seconds,
+        stillness_threshold_dps=args.wrist_gesture_stillness_dps,
+        stillness_seconds=args.wrist_gesture_stillness_seconds,
+        sequence_timeout_seconds=args.wrist_gesture_sequence_timeout_seconds,
+        smoothing_samples=args.wrist_gesture_smoothing_samples))
     commands = queue.Queue()
     dashboard = None
     caregiver_key = os.environ.get('ODYSSEY_CAREGIVER_KEY') or secrets.token_urlsafe(16)
@@ -344,6 +382,10 @@ def main(argv=None):
     seizure_was_detected = False
     seizure_rhythm_candidate_start_ms = None
     seizure_rhythm_lost_ms = None
+    last_wrist_sample_ms = None
+    wrist_gesture_notice_until = 0.0
+    wrist_gesture_success_status = None
+    wrist_gesture_success_until = 0.0
     fall_was_detected = False
     tremor_was_detected = False
     try:
@@ -441,6 +483,34 @@ def main(argv=None):
             end_ms = (sensor_samples[-1].timestamp_ms if sensor_samples
                       else 620 + frame_index * 320)
             frame_index += 1
+            # Serial windows overlap by 16 samples. Feed each physical sample
+            # once so gyroscope integration and the final stillness timer use
+            # Arduino timestamps rather than dashboard or loop timing.
+            for sample in sensor_samples:
+                if last_wrist_sample_ms is not None:
+                    sample_delta = (sample.timestamp_ms - last_wrist_sample_ms) % (2 ** 32)
+                    if sample_delta == 0 or sample_delta >= 2 ** 31:
+                        continue  # Duplicate or overlapping samples from the prior window.
+                last_wrist_sample_ms = sample.timestamp_ms
+                seizure_active = bool(
+                    (episode_tracker and episode_tracker.current is not None) or
+                    (seizure_detector and
+                     getattr(seizure_detector, 'status', {}).get('motion') == 'rhythmic'))
+                if wrist_gesture.feed(
+                        sample,
+                        confirming=(incident.state == 'CONFIRMING'),
+                        seizure_active=seizure_active,
+                        live_sensor=not args.simulate):
+                    if incident.cancel(source='wrist gesture'):
+                        print('Cancelled by wrist gesture.', flush=True)
+                        wrist_gesture_notice_until = time.monotonic() + 5.0
+                        wrist_gesture_success_status = wrist_gesture.status.copy()
+                        wrist_gesture_success_until = time.monotonic() + 5.0
+                        if dashboard:
+                            dashboard.publish(voice_status='Cancelled by wrist gesture',
+                                              incident_notice='Cancelled by wrist gesture',
+                                              incident=incident.state,
+                                              incident_type=incident.kind)
             print('Sensor window collected', flush=True)
             axis_rms = np.std(np.asarray(window, dtype=float)[:, :3], axis=0)
             motion_point = {
@@ -470,6 +540,18 @@ def main(argv=None):
                     for index, sample in enumerate(bridge.latest_samples)
                     if latest_ms - sample.timestamp_ms <= 5000
                 ]
+                update['gyro_waveform'] = [
+                    {'timestamp_ms': sample.timestamp_ms,
+                     'gx_dps': round(float(sample.values[3]), 2),
+                     'gy_dps': round(float(sample.values[4]), 2),
+                     'gz_dps': round(float(sample.values[5]), 2)}
+                    for sample in bridge.latest_samples
+                    if (latest_ms - sample.timestamp_ms) % (2 ** 32) <= 5000
+                ]
+            update['wrist_gesture'] = (wrist_gesture_success_status.copy()
+                                       if wrist_gesture_success_status and
+                                       time.monotonic() < wrist_gesture_success_until
+                                       else wrist_gesture.status.copy())
             seizure_trigger = False
             seizure_detected = False
             motion_status = None

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Odyssey Guardian</title>
+  <title>ODYSAFE</title>
   <style>
     :root { font-family: system-ui, sans-serif; color: #e9f1f5; background: #101c28; }
     * { box-sizing: border-box; }
@@ -84,7 +84,7 @@
     :root { color-scheme:dark; --navy:#091925; --bronze:#A8793D; --gold:#D9B46A; --paper:#E8D5A7; --ivory:#F4E7CB; --crimson:#692A21; --teal:#6DD4C1; --ink:#192523; font-family:Inter,'Segoe UI',sans-serif; background:var(--navy); color:var(--ivory); }
     * { box-sizing:border-box; }
     body { margin:0; min-height:100dvh; padding:10px; overflow:hidden; background:radial-gradient(ellipse at 50% 0,#203847 0,#0d202a 42%,#07141d 100%); }
-    main { width:min(100%,1800px); height:calc(100dvh - 20px); margin:auto; display:grid; grid-template-rows:148px 50px 82px minmax(0,1fr); gap:8px; }
+    main { width:min(100%,1800px); height:calc(100dvh - 20px); margin:auto; display:grid; grid-template-rows:148px 50px minmax(0,1fr); gap:8px; }
     header.hero { min-height:0; padding:0; position:relative; display:grid; place-items:center; overflow:hidden; isolation:isolate; border:2px solid #956b36; outline:1px solid #d4b76d88; outline-offset:-6px; background:#101f29 url('assets/odyssey-header.webp') center 52%/cover no-repeat; box-shadow:0 9px 30px #0009,inset 0 0 45px #070e13; }
     header.hero::before { content:''; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,#07141d1d 0,#07141d45 28%,#08151dcc 43%,#08151dcc 57%,#07141d45 75%,#07141d1a),linear-gradient(0deg,#091925bb,transparent 42%,#09192522); }
     header.hero::after { content:'✦  THE AEGEAN CHRONICLE  ✦'; position:absolute; right:18px; bottom:10px; color:#e2c782; font:600 .55rem/1 system-ui,sans-serif; letter-spacing:.32em; text-shadow:0 2px 5px #000; }
@@ -104,6 +104,8 @@
     .pill.live::before { content:''; width:6px; height:6px; border-radius:50%; background:#75db8a; box-shadow:0 0 8px #75db8a; }
     .pill.alert { color:#ffe1d4; background:#692a21; border-color:#a75a43; }
     .monitor-actions { display:flex; align-items:center; gap:7px; }
+    .response-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+    .response-actions button { min-height:38px; }
     button, summary { cursor:pointer; font:700 .7rem system-ui,sans-serif; }
     button { min-height:30px; padding:6px 10px; border:1px solid #b99350; border-radius:0; color:#211c13; background:linear-gradient(#e7cc8b,#b28b4c); box-shadow:inset 0 1px #fff8,0 2px 6px #0005; }
     button:hover:not(:disabled) { filter:brightness(1.13); }
@@ -119,44 +121,86 @@
     .menu-panel p { margin:6px 0; color:#decfa9; font-size:.72rem; }
     .answer-actions { display:flex; gap:6px; }
     .answer-actions button { flex:1; }
-    .detectors { min-height:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
     .detector { min-width:0; display:flex; align-items:center; gap:12px; padding:9px 14px; border:1px solid #8b6b3e; outline:1px solid #c99f5726; outline-offset:-4px; background:linear-gradient(115deg,#101e25,#1d3034 64%,#131f24); box-shadow:inset 0 0 18px #0005; }
     .medallion { flex:none; width:42px; height:42px; display:grid; place-items:center; border:1px solid #c0954b; border-radius:50%; color:#dfbd70; background:radial-gradient(circle,#59452b,#1c292b 72%); box-shadow:inset 0 0 0 3px #d9b46a29,0 2px 7px #0008; }
     .medallion svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:1.5; }
     .detector h2,.panel h2 { margin:0; color:#e1c989; font:600 .76rem/1.2 Georgia,'Palatino Linotype',serif; letter-spacing:.065em; text-transform:uppercase; }
     .detector .value { margin-top:5px; color:#fff0d0; font-size:.83rem; font-weight:650; line-height:1.25; }
     #seizure-motion { margin-top:3px; color:#cabb98; font-size:.62rem; }
-    .console { min-height:0; display:grid; grid-template-columns:minmax(0,2.08fr) minmax(225px,.88fr) minmax(260px,1.04fr); gap:8px; }
-    .chart-column,.middle-column { min-height:0; display:grid; gap:8px; }
-    .chart-column { grid-template-rows:1.1fr .9fr; }
-    .middle-column { grid-template-rows:minmax(0,1.25fr) minmax(120px,.75fr); }
+    .console { min-height:0; display:grid; grid-template-columns:minmax(0,2.55fr) minmax(310px,1fr); gap:10px; }
+    .chart-column,.sidebar { min-height:0; display:grid; gap:10px; }
+    .chart-column { grid-template-rows:repeat(3,minmax(0,1fr)); }
+    .sidebar { grid-template-rows:minmax(0,1.35fr) minmax(180px,.65fr); }
     .panel { min-width:0; min-height:0; position:relative; overflow:hidden; padding:10px 12px; border:1px solid #a8793d; outline:1px solid #d2ac623f; outline-offset:-4px; box-shadow:inset 0 0 0 2px #d6b86a15,0 5px 15px #0006; }
-    .instrument { display:flex; flex-direction:column; background:linear-gradient(145deg,#14262d,#09171e 78%); }
+    .instrument { display:flex; flex-direction:column; padding:8px 10px; background:linear-gradient(145deg,#14262d,#09171e 78%); }
     .instrument::before,.chronicle::before { content:''; position:absolute; inset:4px; pointer-events:none; border:1px solid #b58a4c41; }
-    .panel-heading { flex:none; display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:5px; }
+    .instrument::before { display:none; }
+    .panel-heading { flex:none; display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px; }
     .panel-heading .ornament { color:#b69150; font:.65rem Georgia,serif; letter-spacing:.18em; }
-    .chart-wrap { min-height:0; flex:1; overflow:hidden; margin-top:3px; border:1px solid #80633d; background:#081820; box-shadow:inset 0 0 24px #000c; }
+    .chart-meta { display:flex; align-items:center; gap:8px; margin-left:auto; color:#cbbd98; font:600 .58rem system-ui,sans-serif; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+    .chart-legend { display:flex; align-items:center; gap:5px; color:#d8c9a5; font-size:.56rem; letter-spacing:.03em; }
+    .chart-legend span { display:inline-flex; align-items:center; gap:3px; }
+    .chart-legend i { width:6px; height:6px; border-radius:50%; background:currentColor; box-shadow:0 0 5px currentColor; }
+    .chart-legend .axis-x { color:#80dec0; }.chart-legend .axis-y { color:#a8c8ff; }.chart-legend .axis-z { color:#ffac89; }
+    .instrument > .graph-surface { display:block; width:100%; height:auto; min-height:0; flex:1 1 0; align-self:stretch; overflow:hidden; margin:0; border:0; background:transparent; box-shadow:none; }
     .chart-svg { display:block; width:100%; height:100%; overflow:hidden; }
     .chart-grid { stroke:#c8ad7050; stroke-width:.75; }
     .chart-axis { fill:#e5d8b8; font:11px 'Segoe UI',sans-serif; }
     .chart-empty { fill:#d9c99f; font:14px 'Segoe UI',sans-serif; text-anchor:middle; }
-    .chart-summary { flex:none; min-height:1.15em; margin:5px 0 0; color:#cbbd98; font-size:.65rem; }
+    .chart-summary { flex:none; min-height:1.15em; margin:3px 0 0; color:#cbbd98; font-size:.65rem; }
+    .gyro-mini-heading { flex:none; display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 5px; color:#d9c99f; font:600 .61rem system-ui,sans-serif; letter-spacing:.08em; text-transform:uppercase; }
+    .gyro-mini-heading h3 { margin:0; font:600 .76rem/1.2 Georgia,'Palatino Linotype',serif; letter-spacing:.065em; }
+    #gesture-stage { color:#e1c989; }
+    .gyro-chart-wrap { min-height:0; flex:1; margin:0; overflow:hidden; border:0; background:transparent; }
+    .gyro-chart-wrap svg { display:block; width:100%; height:100%; }
+    .gyro-debug { flex:none; min-height:1em; margin:3px 0 0; overflow:hidden; color:#cbbd98; font-size:.6rem; line-height:1.25; text-overflow:ellipsis; white-space:nowrap; }
     .grow-button { min-height:25px; padding:4px 8px; color:#e8d7ae; border-color:#8d7041; background:#1a2b30; font-size:.62rem; }
     .paper { color:var(--ink); border-color:#af8648; background:radial-gradient(ellipse at 50% 10%,#f2e4bd,#dfc997 84%); box-shadow:inset 0 0 0 4px #a7804529,inset 0 0 24px #94713e45,0 5px 14px #0006; }
     .paper::before { content:'✦  ARCHIVE OF MOTION  ✦'; position:absolute; top:8px; right:12px; color:#745b36; font:600 .47rem system-ui,sans-serif; letter-spacing:.13em; }
     .paper h2 { color:#3c3021; }
     .episode-state { margin:8px 0; color:#613b26; font:600 .76rem Georgia,serif; }
+    .watch-panel { display:flex; flex-direction:column; gap:9px; padding:14px; }
+    .watch-status { padding:12px 10px; border:1px solid #92784d8c; background:#ead9b5a8; }
+    .watch-panel.critical { border-color:#ff6656; background:linear-gradient(145deg,#ffd0be,#d37a62 74%); box-shadow:inset 0 0 0 3px #fff2,0 0 30px #ff352a99; }
+    .watch-panel.critical .watch-status { border-color:#8b1f19; background:#fff0e7; }
+    .watch-panel.critical #incident { color:#8b1713; }
+    .watch-status .eyebrow { display:block; color:#70552d; }
+    #incident.watch-value { display:block; margin-top:6px; color:#302719; font:600 1.02rem/1.25 Georgia,serif; white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+    #incident-help.watch-help { display:block; margin:6px 0 0; color:#65553c; font-size:.69rem; line-height:1.35; }
+    .episode-disclosure { min-height:0; border:1px solid #967746a8; background:#ddc89970; }
+    .episode-disclosure[open] { overflow:auto; scrollbar-color:#97713c #d8c18f; }
+    .episode-disclosure > summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:38px; padding:8px 9px; color:#382c1d; font:700 .68rem Georgia,serif; list-style:none; }
+    .episode-disclosure > summary::-webkit-details-marker { display:none; }
+    .episode-disclosure > summary::after { content:"+"; margin-left:auto; color:#744f25; font:700 1rem system-ui,sans-serif; }
+    .episode-disclosure[open] > summary::after { content:"-"; }
+    .episode-disclosure > summary:focus-visible { outline:2px solid #714a24; outline-offset:-2px; }
+    #episode-summary-state { color:#70552d; font:600 .58rem system-ui,sans-serif; text-align:right; }
+    .detector-disclosure { border:1px solid #967746a8; background:#ddc89970; }
+    .detector-disclosure > summary { display:flex; align-items:center; gap:8px; min-height:35px; padding:8px 9px; color:#382c1d; font:700 .68rem Georgia,serif; list-style:none; }
+    .detector-disclosure > summary::-webkit-details-marker { display:none; }
+    .detector-disclosure > summary::after { content:"+"; margin-left:auto; color:#744f25; font:700 1rem system-ui,sans-serif; }
+    .detector-disclosure[open] > summary::after { content:"-"; }
+    .detector-list { display:grid; gap:1px; border-top:1px solid #92784d6e; }
+    .detector-disclosure .detector { padding:8px 9px; border:0; outline:0; background:#f0dfba8c; box-shadow:none; }
+    .detector-disclosure .medallion { width:31px; height:31px; color:#80612e; border-color:#97713c; background:radial-gradient(circle,#ead4a4,#c6ad76 72%); box-shadow:none; }
+    .detector-disclosure .medallion svg { width:18px; height:18px; }
+    .detector-disclosure .detector h2 { color:#574225; font-size:.64rem; }
+    .detector-disclosure .detector .value { margin-top:3px; color:#302719; font-size:.76rem; }
+    .detector-disclosure #seizure-motion { color:#6d5938; font-size:.59rem; }
+    .episode-report-body { padding:0 9px 9px; }
     .report-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px 8px; margin-top:6px; }
     .report-metric { padding:5px 6px; border-top:1px solid #92784d6e; }
     .report-metric span { display:block; color:#6e5a3b; font-size:.56rem; font-weight:750; letter-spacing:.06em; text-transform:uppercase; }
     .report-metric strong { display:block; margin-top:2px; color:#2c3029; font:600 .9rem Georgia,serif; }
     #full-report { margin-top:6px; color:#fff0d6; background:linear-gradient(#874036,#58221d); border-color:#8b582f; }
-    .motion-paper .value { margin-top:8px; color:#2c3029; font:600 .88rem/1.55 'Segoe UI',sans-serif; }
-    .motion-paper p { margin:5px 0 0; color:#6e5a3b; font-size:.67rem; }
+    body.critical-alert::after { content:''; position:fixed; z-index:100; inset:0; pointer-events:none; border:14px solid #ff3b2f; background:#ff241b24; box-shadow:inset 0 0 110px #ff251b88; animation:critical-flash .78s steps(2,end) infinite; }
+    @keyframes critical-flash { 50% { border-color:#ffd4c8; background:#ff120842; box-shadow:inset 0 0 150px #ff1208bb; } }
+    @media (prefers-reduced-motion:reduce) { body.critical-alert::after { animation:none; } }
     .chronicle { display:flex; flex-direction:column; color:#302b22; border-color:#bc9658; background:linear-gradient(135deg,#e9d7ad,#d8c18f); }
     .chronicle .panel-heading { padding:2px 4px 7px; border-bottom:1px solid #90704499; }
     .chronicle h2 { color:#372b1c; font-size:.92rem; font-variant:small-caps; }
     .chronicle .ornament { color:#6c4e2a; }
+    .events-description { margin:2px 4px 6px; color:#6c5535; font:.66rem/1.35 system-ui,sans-serif; }
     #events { min-height:0; overflow:auto; margin:4px 2px 0; padding:0 5px 0 0; list-style:none; scrollbar-color:#97713c #d8c18f; }
     #events li { position:relative; padding:9px 5px 9px 23px; border-top:1px solid #8c724553; color:#39352c; font:.7rem/1.32 Georgia,serif; }
     #events li:first-child { border-top:0; }
@@ -174,9 +218,10 @@
     #report-dialog { width:min(92vw,660px); height:auto; max-height:85dvh; }
     #report-dialog p { color:#e1d4b4; font-size:.85rem; line-height:1.5; }
     #full-report-close { margin-top:12px; }
-    @media(max-height:800px) and (min-width:1001px) { main { grid-template-rows:126px 46px 74px minmax(0,1fr); gap:7px; } header.hero { background-position:center 50%; } .detector { padding:6px 10px; } .medallion { width:36px; height:36px; } .panel { padding:8px 10px; } }
-    @media(max-width:1000px) { body { overflow:auto; } main { height:auto; min-height:100dvh; grid-template-rows:136px auto auto auto; } .monitor-bar { flex-wrap:wrap; } .monitor-meta { gap:8px; } .console { grid-template-columns:minmax(0,1.7fr) minmax(230px,1fr); grid-template-rows:minmax(490px,auto) 330px; } .chart-column { grid-row:span 2; } .middle-column { grid-template-rows:1fr .75fr; } .chronicle { min-height:280px; } }
-    @media(max-width:650px) { main { grid-template-rows:120px auto auto auto; } h1 { font-size:1.65rem; } .hero-title p { font-size:.52rem; letter-spacing:.3em; } .monitor-bar { gap:8px; } .incident-block { flex-basis:calc(100% - 50px); } .monitor-meta { order:3; flex:1; } .monitor-actions { order:4; margin-left:auto; } .detectors { grid-template-columns:1fr; } .detector { min-height:68px; } .console { display:flex; flex-direction:column; } .chart-column { grid-template-rows:300px 280px; } .middle-column { grid-template-rows:auto auto; } .episode-card { min-height:250px; } .motion-paper { min-height:130px; } .chronicle { min-height:300px; } }
+    @media(max-height:800px) and (min-width:1001px) { main { grid-template-rows:126px 46px minmax(0,1fr); gap:7px; } header.hero { background-position:center 50%; } .panel { padding:8px 10px; } }
+    @media(max-width:1000px) { body { overflow:auto; } main { height:auto; min-height:100dvh; grid-template-rows:136px auto auto; } .monitor-bar { flex-wrap:wrap; } .monitor-meta { gap:8px; } .console { grid-template-columns:minmax(0,1.75fr) minmax(270px,1fr); } .chart-column { min-height:820px; } .sidebar { grid-template-rows:minmax(300px,auto) 280px; } .chronicle { min-height:280px; } }
+    @media(max-width:650px) { main { grid-template-rows:120px auto auto; } h1 { font-size:1.65rem; } .hero-title p { font-size:.52rem; letter-spacing:.3em; } .monitor-bar { gap:8px; } .monitor-meta { order:3; flex:1; } .monitor-actions { order:4; margin-left:auto; } .console { display:flex; flex-direction:column; } .chart-column { grid-template-rows:340px 340px 310px; } .sidebar { display:grid; grid-template-rows:auto 300px; } .watch-panel { min-height:230px; } .chronicle { min-height:300px; } }
+    @media(max-width:760px) { .chart-meta { gap:5px; font-size:.52rem; } .chart-legend { display:none; } }
     #report-dialog { width:min(96vw,1250px); height:min(94dvh,920px); overflow:auto; }
     .report-actions { display:flex; gap:8px; margin:8px 0; }
     .download-link { display:inline-block; padding:7px 11px; border:1px solid #a8793d; color:#fff0d6; background:linear-gradient(#874036,#58221d); font:700 .68rem system-ui,sans-serif; text-decoration:none; }
@@ -195,19 +240,170 @@
     #episode-history li { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 2px; border-color:#8c704144; color:#e8d8b5; font-size:.68rem; }
     #episode-history button { min-height:24px; padding:4px 7px; color:#efdfb8; background:#1c2e31; }
     @media(max-width:700px) { .report-chart-grid { grid-template-columns:1fr; } .report-canvas-wrap { height:210px; } }
+
+    /* ═══ ODYSAFE final layout: full-height parchment sidebar + edge-to-edge charts ═══ */
+    body { padding:10px; overflow:hidden; }
+    main {
+      width:min(100%,1900px);
+      max-width:none;
+      height:calc(100dvh - 20px);
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:minmax(0,2.45fr) minmax(340px,.95fr);
+      grid-template-rows:clamp(115px,15vh,155px) 52px minmax(0,1fr);
+      gap:10px;
+      align-items:stretch;
+    }
+    header.hero { grid-column:1; grid-row:1; min-height:0; }
+    .hero-title { padding:7px 14px; }
+    .hero-title h1 { font-size:clamp(2.1rem,3.5vw,3.6rem); }
+    .monitor-bar { grid-column:1; grid-row:2; min-height:0; }
+    /* display:contents makes the existing HTML console wrapper layout-neutral. */
+    .console { display:contents; }
+    .chart-column {
+      grid-column:1; grid-row:3;
+      display:grid;
+      grid-template-rows:minmax(0,1.1fr) minmax(0,1.12fr) minmax(0,1.03fr);
+      gap:10px; min-width:0; min-height:0;
+    }
+    .sidebar {
+      grid-column:2; grid-row:1 / 4;
+      display:grid;
+      grid-template-rows:minmax(0,1.13fr) minmax(0,.87fr);
+      gap:10px; min-width:0; min-height:0;
+    }
+    /* No inset chart frame: plot is the card's own content area. */
+    .instrument {
+      display:flex; flex-direction:column;
+      gap:4px; min-width:0; min-height:0;
+      padding:10px 12px 8px;
+      background:linear-gradient(145deg,#14262d,#09171e 78%);
+    }
+    .instrument .panel-heading { flex:0 0 auto; min-height:28px; margin:0; }
+    .instrument .panel-heading h2 { font-size:clamp(.74rem,.95vw,.95rem); letter-spacing:.045em; }
+    .instrument .graph-surface {
+      display:block; flex:1 1 0; align-self:stretch;
+      width:100%; height:100%; min-height:0; min-width:0;
+      margin:0; padding:0; overflow:hidden;
+      background:transparent; border:0; box-shadow:none;
+    }
+    .instrument .chart-summary, .instrument .gyro-debug {
+      margin:0; min-height:16px; flex:0 0 auto;
+      font-size:.68rem; line-height:1.25;
+    }
+    .instrument .gyro-mini-heading { flex:0 0 auto; margin:0; min-height:17px; }
+    .chart-grid { stroke:#c8ad703b; stroke-width:.75; }
+    .chart-axis { font:11px 'Segoe UI',sans-serif; fill:#e5d8b8; }
+    .chart-empty { font:13px 'Segoe UI',sans-serif; fill:#d9c99f; }
+    .watch-panel { min-height:0; overflow-y:auto; overflow-x:hidden; scrollbar-color:#97713c #d8c18f; }
+    .chronicle { min-height:0; }
+    .chronicle #events { flex:1 1 auto; min-height:0; max-height:none; overflow:auto; }
+    .sidebar .panel-heading { flex:0 0 auto; }
+    .sidebar .response-actions { flex:0 0 auto; }
+    .sidebar .watch-status { flex:0 0 auto; }
+    .sidebar .episode-disclosure { flex:0 0 auto; }
+    .sidebar .detector-disclosure { flex:0 0 auto; }
+    .chart-wrap.dialog-chart { height:calc(100% - 44px); min-height:0; margin:0; }
+    .dialog-chart svg { width:100%; height:100%; }
+    @media (max-height:720px) and (min-width:1001px) {
+      main { grid-template-rows:108px 44px minmax(0,1fr); gap:7px; }
+      .chart-column,.sidebar { gap:7px; }
+      .instrument { padding:7px 9px 5px; gap:2px; }
+      .instrument .panel-heading { min-height:24px; }
+      .watch-panel { padding:10px; gap:6px; }
+    }
+    @media (max-width:1000px) {
+      body { overflow:auto; }
+      main {
+        height:auto; min-height:100dvh;
+        display:flex; flex-direction:column;
+        gap:10px;
+      }
+      header.hero { min-height:125px; flex:0 0 125px; }
+      .monitor-bar { flex:0 0 auto; min-height:50px; flex-wrap:wrap; }
+      .console { display:flex; flex-direction:column; gap:10px; }
+      .chart-column { min-height:0; display:grid; grid-template-rows:275px 285px 235px; }
+      .sidebar { min-height:0; display:grid; grid-template-rows:minmax(300px,auto) 300px; }
+      .chronicle #events { max-height:230px; }
+    }
+    @media (max-width:650px) {
+      header.hero { min-height:110px; flex-basis:110px; }
+      .hero-title h1 { font-size:2.05rem; }
+      .chart-column { grid-template-rows:290px 300px 250px; }
+      .sidebar { grid-template-rows:minmax(300px,auto) 280px; }
+      .instrument { padding:9px; }
+      .chart-meta { font-size:.54rem; }
+      .panel-heading { flex-wrap:nowrap; }
+    }
+
+    /* ═══ MAXIMIZED PLOT REAL ESTATE: fewer chrome pixels, more signal ═══ */
+    body { padding:6px; }
+    main {
+      height:calc(100dvh - 12px);
+      width:100%;
+      grid-template-columns:minmax(0,3.02fr) minmax(335px,1fr);
+      grid-template-rows:clamp(88px,10.5vh,115px) 42px minmax(0,1fr);
+      gap:7px;
+    }
+    .monitor-bar { min-height:0; padding:3px 9px; }
+    .monitor-bar .shield { width:26px; height:30px; }
+    .chart-column { grid-template-rows:minmax(0,1.07fr) minmax(0,1.15fr) minmax(0,1fr); gap:7px; }
+    .sidebar { gap:7px; grid-template-rows:minmax(0,1.12fr) minmax(0,.88fr); }
+    .instrument { gap:0; padding:4px 7px 3px; }
+    .instrument .panel-heading { min-height:25px; margin:0; }
+    .instrument .panel-heading h2 { font-size:clamp(.77rem,.95vw,1rem); }
+    .instrument .graph-surface,
+    .instrument > .graph-surface {
+      flex:1 1 auto; width:100%; height:0; min-height:0; min-width:0;
+      margin:0; padding:0; align-self:stretch; display:block;
+      border:0; outline:0; box-shadow:none; background:transparent;
+    }
+    .instrument .chart-summary { min-height:14px; font-size:.66rem; margin:0; }
+    .instrument .gyro-mini-heading { min-height:15px; margin:0; }
+    .instrument .gyro-mini-heading h3 { font-size:.69rem; }
+    .instrument .gyro-debug { min-height:14px; margin:0; font-size:.62rem; }
+    .chart-axis { font:11px 'Segoe UI',sans-serif; }
+    .grow-button { min-height:22px; padding:2px 7px; }
+    .watch-panel { padding:10px; gap:8px; }
+    .chronicle { padding:10px; }
+    /* On normal laptop resolutions don't give the banner a third of the screen. */
+    @media (max-height:790px) and (min-width:1001px) {
+      main { grid-template-rows:90px 41px minmax(0,1fr); gap:6px; }
+      .chart-column,.sidebar { gap:6px; }
+      .instrument { padding:4px 6px 3px; }
+      .instrument .panel-heading { min-height:23px; }
+    }
+    @media (max-height:630px) and (min-width:1001px) {
+      main { grid-template-rows:72px 36px minmax(0,1fr); }
+      .instrument .panel-heading { min-height:20px; }
+    }
+    @media (max-width:1000px) {
+      body { padding:8px; overflow:auto; }
+      main { height:auto; min-height:100dvh; display:flex; flex-direction:column; gap:8px; }
+      header.hero { min-height:110px; flex:0 0 110px; }
+      .monitor-bar { min-height:42px; }
+      .console { display:flex; flex-direction:column; gap:8px; }
+      .chart-column { grid-template-rows:330px 340px 290px; gap:8px; }
+      .sidebar { grid-template-rows:minmax(300px,auto) 300px; }
+    }
+    @media (max-width:650px) {
+      header.hero { min-height:104px; flex-basis:104px; }
+      .chart-column { grid-template-rows:300px 325px 280px; }
+      .sidebar { grid-template-rows:minmax(300px,auto) 280px; }
+      .instrument .panel-heading h2 { font-size:.74rem; }
+      .chart-meta { font-size:.52rem; }
+    }
   </style>
 </head>
 <body>
 <main>
-  <header class="hero" aria-label="Odyssey Guardian: Trojan horse and Greek trireme crossing the Aegean">
-    <div class="hero-title"><h1>Odyssey Guardian</h1><p>THE WATCHFUL VOYAGE</p></div>
+  <header class="hero" aria-label="ODYSAFE: Greek shield, Aegean city, and trireme crossing the sea">
+    <div class="hero-title"><h1>ODYSAFE</h1><p>THE WATCHFUL VOYAGE</p></div>
   </header>
   <section class="monitor-bar" aria-label="Live monitoring status">
     <svg class="shield" viewBox="0 0 32 38" role="img" aria-label="Bronze shield"><path d="M16 2 28 6v10c0 9-5 15-12 20C9 31 4 25 4 16V6z" fill="#754f27" stroke="currentColor" stroke-width="1.6"/><path d="M16 6 24 9v7c0 6-3 10-8 14-5-4-8-8-8-14V9z" fill="none" stroke="currentColor"/><path d="m16 10 1.5 4 4 .5-3 2.7.8 4-3.3-2.1-3.3 2.1.8-4-3-2.7 4-.5z" fill="currentColor"/></svg>
-    <div class="incident-block"><span class="eyebrow">Watch status</span><div id="incident">Waiting for backend</div><p id="incident-help">A confirmation prompt will appear for a possible incident.</p></div>
     <div class="monitor-meta"><span id="connection" class="pill">Connecting</span><span id="source">Waiting for backend</span><span id="sensor-status">Waiting for sensor</span><span id="updated">No data yet</span></div>
     <div class="monitor-actions">
-      <button id="cancel" disabled>I'm okay</button><button id="help" disabled>Need help</button><button id="pause-broadcast" disabled>Pause broadcast</button>
       <details id="voice-menu"><summary>Voice &amp; Location</summary><div class="menu-panel">
         <div class="eyebrow">Voice confirmation</div><div id="voice" class="value">Waiting for backend</div><p id="voice-help">Uses this computer's microphone when a possible fall starts confirmation.</p><button id="enroll" disabled>Record my voice</button>
         <hr style="border:0;border-top:1px solid #8c7147;margin:12px 0"><div class="eyebrow">Caregiver connection</div><p id="caregiver-status">Caregiver page: waiting for backend</p><p id="location-share-status">Location sharing is off.</p><button id="share-location">Share my location with caregiver</button>
@@ -215,30 +411,42 @@
       </div></details>
     </div>
   </section>
-  <section class="detectors" aria-label="Experimental motion detection status">
-    <article class="detector"><div class="medallion" aria-hidden="true"><svg viewBox="0 0 28 28"><path d="M2 15h5l3-8 5 15 3-9 2 3h6"/></svg></div><div><h2>Tremor-like motion</h2><div id="tremor" class="value">Waiting for data</div></div></article>
-    <article class="detector"><div class="medallion" aria-hidden="true"><svg viewBox="0 0 28 28"><path d="M14 3 25 23H3z"/><path d="M14 10v6m0 3v.2"/></svg></div><div><h2>Fall model</h2><div id="fall" class="value">Waiting for data</div></div></article>
-    <article class="detector"><div class="medallion" aria-hidden="true"><svg viewBox="0 0 28 28"><path d="M14 3v22M5 8c4 2 4 10 0 12m18-12c-4 2-4 10 0 12M9 5c3 3 3 15 0 18m10-18c-3 3-3 15 0 18"/></svg></div><div><h2>Possible seizure-like movement</h2><div id="seizure" class="value">Waiting for data</div><div id="seizure-motion"></div></div></article>
-  </section>
   <section class="console" aria-label="Motion monitoring console">
     <div class="chart-column">
-      <section class="panel instrument"><div class="panel-heading"><h2>Live Motion Waveform</h2><span class="ornament">— V —</span><button class="grow-button" data-expand="waveform-dialog">Expand</button></div><div class="chart-wrap"><svg id="waveform-chart" class="chart-svg" viewBox="0 0 760 230" role="img" aria-label="Five-second signed X, Y and Z acceleration waveform"></svg></div><p class="chart-summary" id="waveform-status">Waiting for sensor samples</p></section>
-      <section class="panel instrument"><div class="panel-heading"><h2>Tremor Frequency Spectrum</h2><span class="ornament">3–20 Hz · example band 3–12 Hz</span><button class="grow-button" data-expand="spectrum-dialog">Expand</button></div><div class="chart-wrap"><svg id="spectrum-chart" class="chart-svg" viewBox="0 0 760 230" role="img" aria-label="Tremor frequency power spectrum"></svg></div><p class="chart-summary" id="spectrum-summary">Waiting for enough sensor samples</p></section>
+      <section class="panel instrument"><div class="panel-heading"><h2>Live Motion Waveform</h2><div class="chart-meta"><span>Acceleration · g</span><span class="chart-legend" aria-label="Acceleration axis legend"><span class="axis-x"><i></i>X</span><span class="axis-y"><i></i>Y</span><span class="axis-z"><i></i>Z</span></span></div><button class="grow-button" data-expand="waveform-dialog">Expand</button></div><svg id="waveform-chart" class="chart-svg graph-surface" viewBox="0 0 760 230" role="img" aria-label="Five-second signed X, Y and Z acceleration waveform"></svg><p class="chart-summary" id="waveform-status">Waiting for sensor samples</p></section>
+      <section class="panel instrument"><div class="panel-heading"><h2>Live Gyroscope Trace</h2><div class="chart-meta"><span>Rotation speed · °/s</span><span class="chart-legend" aria-label="Gyroscope axis legend"><span class="axis-x"><i></i>X</span><span class="axis-y"><i></i>Y</span><span class="axis-z"><i></i>Z</span></span></div><button class="grow-button" data-expand="gyro-dialog">Expand</button></div><svg id="gyro-waveform" class="graph-surface" viewBox="0 0 760 112" role="img" aria-label="Live five-second gyroscope X, Y, and Z rotation waveforms with gesture stage markers"></svg><div class="gyro-mini-heading"><h3>Gesture status</h3><span id="gesture-stage">ARMED</span></div><p class="gyro-debug" id="gesture-debug">Wrist gesture armed; active only during CONFIRMING.</p></section>
+      <section class="panel instrument"><div class="panel-heading"><h2>Tremor Frequency Spectrum</h2><div class="chart-meta"><span>3–12 Hz</span><span class="chart-legend" aria-label="Spectrum legend"><span class="axis-x"><i></i>Power</span><span class="axis-z"><i></i>Peak</span></span></div><button class="grow-button" data-expand="spectrum-dialog">Expand</button></div><svg id="spectrum-chart" class="chart-svg graph-surface" viewBox="0 0 760 230" role="img" aria-label="Tremor frequency power spectrum from 3 to 12 hertz"></svg><p class="chart-summary" id="spectrum-summary">Waiting for enough sensor samples</p></section>
     </div>
-    <div class="middle-column">
-      <section class="panel paper episode-card"><div class="panel-heading"><h2>Episode Report</h2><span class="ornament" id="episode-source">AWAITING DATA</span></div><div id="episode-status" class="episode-state">No active episode report</div><div class="report-grid">
-        <div class="report-metric"><span>Duration</span><strong id="episode-duration">—</strong></div><div class="report-metric"><span>Average movement</span><strong id="episode-average">—</strong></div>
-        <div class="report-metric"><span>Highest peak</span><strong id="episode-peak">—</strong></div><div class="report-metric"><span>Above-average bursts</span><strong id="episode-bursts">—</strong></div>
-        <div class="report-metric"><span>Average frequency</span><strong id="episode-frequency">—</strong></div><div class="report-metric"><span>Time above average</span><strong id="episode-above-time">—</strong></div>
-      </div><button id="full-report">View Full Report</button></section>
-      <section class="panel paper motion-paper"><div class="panel-heading"><h2>Motion Axis RMS</h2><span class="ornament">INSTRUMENT 03</span></div><div id="motion" class="value">Waiting for data</div><p id="windows">0 windows received</p></section>
-    </div>
-    <aside class="panel chronicle"><div class="panel-heading"><h2>Recent Events</h2><span class="ornament">CHRONICLE</span></div><ul id="events"><li class="muted">No events yet</li></ul></aside>
+    <aside class="sidebar" aria-label="Watch status and recent events">
+      <section id="watch-panel" class="panel paper watch-panel" aria-label="Watch status and episode report">
+        <div class="panel-heading"><h2>Watch Status</h2><span class="ornament">LIVE WATCH</span></div>
+        <div class="watch-status"><span class="eyebrow">Current status</span><div id="incident" class="watch-value">Waiting for backend</div><p id="incident-help" class="watch-help">A confirmation prompt will appear for a possible incident.</p></div>
+        <details class="detector-disclosure">
+          <summary>Motion Detection Status</summary>
+          <div class="detector-list" aria-label="Experimental motion detection status">
+            <article class="detector"><div class="medallion" aria-hidden="true"><svg viewBox="0 0 28 28"><path d="M2 15h5l3-8 5 15 3-9 2 3h6"/></svg></div><div><h2>Tremor-like motion</h2><div id="tremor" class="value">Waiting for data</div></div></article>
+            <article class="detector"><div class="medallion" aria-hidden="true"><svg viewBox="0 0 28 28"><path d="M14 3 25 23H3z"/><path d="M14 10v6m0 3v.2"/></svg></div><div><h2>Fall model</h2><div id="fall" class="value">Waiting for data</div></div></article>
+            <article class="detector"><div class="medallion" aria-hidden="true"><svg viewBox="0 0 28 28"><path d="M14 3v22M5 8c4 2 4 10 0 12m18-12c-4 2-4 10 0 12M9 5c3 3 3 15 0 18m10-18c-3 3-3 15 0 18"/></svg></div><div><h2>Possible seizure-like movement</h2><div id="seizure" class="value">Waiting for data</div><div id="seizure-motion"></div></div></article>
+          </div>
+        </details>
+        <div class="response-actions" aria-label="Incident response controls"><button id="cancel" disabled>I'm okay</button><button id="help" disabled>Need help</button><button id="pause-broadcast" disabled>Pause broadcast</button></div>
+        <details id="episode-disclosure" class="episode-disclosure">
+          <summary><span>Episode Report</span><span id="episode-summary-state">No active episode</span></summary>
+          <div class="episode-report-body"><div class="panel-heading"><span class="ornament" id="episode-source">AWAITING DATA</span></div><div id="episode-status" class="episode-state">No active episode report</div><div class="report-grid">
+            <div class="report-metric"><span>Duration</span><strong id="episode-duration">—</strong></div><div class="report-metric"><span>Average movement</span><strong id="episode-average">—</strong></div>
+            <div class="report-metric"><span>Highest peak</span><strong id="episode-peak">—</strong></div><div class="report-metric"><span>Above-average bursts</span><strong id="episode-bursts">—</strong></div>
+            <div class="report-metric"><span>Average frequency</span><strong id="episode-frequency">—</strong></div><div class="report-metric"><span>Time above average</span><strong id="episode-above-time">—</strong></div>
+          </div><button id="full-report">View Full Report</button></div>
+        </details>
+      </section>
+      <section class="panel chronicle"><div class="panel-heading"><h2>Recent Events</h2><span class="ornament">CHRONICLE</span></div><p class="events-description">Safety alerts and monitoring milestones will appear here.</p><ul id="events"><li class="muted">No events yet</li></ul></section>
+    </aside>
   </section>
   <footer>Experimental seizure-like motion detection. Not a medical diagnosis.</footer>
 </main>
 <dialog id="waveform-dialog" aria-labelledby="waveform-dialog-title"><div class="dialog-head"><h2 id="waveform-dialog-title">Live Motion Waveform · Five seconds</h2><button data-close="waveform-dialog">Close</button></div><div class="chart-wrap dialog-chart"><svg id="waveform-modal-chart" class="chart-svg" viewBox="0 0 760 230" role="img" aria-label="Expanded live five-second acceleration waveform"></svg></div></dialog>
-<dialog id="spectrum-dialog" aria-labelledby="spectrum-dialog-title"><div class="dialog-head"><h2 id="spectrum-dialog-title">Tremor Frequency Spectrum · 3–20 Hz</h2><button data-close="spectrum-dialog">Close</button></div><div class="chart-wrap dialog-chart"><svg id="spectrum-modal-chart" class="chart-svg" viewBox="0 0 760 230" role="img" aria-label="Expanded live tremor frequency spectrum"></svg></div></dialog>
+<dialog id="gyro-dialog" aria-labelledby="gyro-dialog-title"><div class="dialog-head"><h2 id="gyro-dialog-title">Live Gyroscope Trace · Rotation speed</h2><button data-close="gyro-dialog">Close</button></div><div class="chart-wrap dialog-chart"><svg id="gyro-modal-chart" class="chart-svg" viewBox="0 0 760 112" role="img" aria-label="Expanded live gyroscope X, Y, and Z rotation waveforms"></svg></div></dialog>
+<dialog id="spectrum-dialog" aria-labelledby="spectrum-dialog-title"><div class="dialog-head"><h2 id="spectrum-dialog-title">Tremor Frequency Spectrum · 3–12 Hz</h2><button data-close="spectrum-dialog">Close</button></div><div class="chart-wrap dialog-chart"><svg id="spectrum-modal-chart" class="chart-svg" viewBox="0 0 760 230" role="img" aria-label="Expanded live tremor frequency spectrum from 3 to 12 hertz"></svg></div></dialog>
 <dialog id="report-dialog" aria-labelledby="report-dialog-title"><div class="dialog-head"><div><h2 id="report-dialog-title">Seizure-like Motion Episode Report</h2><span id="report-source" class="muted">Waiting for episode data</span></div><button data-close="report-dialog">Close</button></div>
   <p id="report-detail">No completed episode report is available yet.</p><p id="report-motion-detail">Experimental sensor movement measurements; not a medical diagnosis.</p>
   <div class="report-actions"><a id="download-json" class="download-link" aria-disabled="true">Download JSON</a><a id="download-csv" class="download-link" aria-disabled="true">Download CSV</a></div>
@@ -254,47 +462,154 @@
   let locationWatch = null;
   let caregiverKey = '';
   const svgNs = 'http://www.w3.org/2000/svg';
-  const waveformChart = byId('waveform-chart'), spectrumChart = byId('spectrum-chart');
-  const waveformModalChart = byId('waveform-modal-chart'), spectrumModalChart = byId('spectrum-modal-chart');
-  let waveformSamples = [], latestSpectrum = [], latestTremor = null, lastWaveAt = 0, graphFrame = 0;
+  const waveformChart = byId('waveform-chart'), gyroChart = byId('gyro-waveform'), spectrumChart = byId('spectrum-chart');
+  const waveformModalChart = byId('waveform-modal-chart'), gyroModalChart = byId('gyro-modal-chart'), spectrumModalChart = byId('spectrum-modal-chart');
+  let waveformSamples = [], gyroSamples = [], wristGesture = null, incidentState = 'MONITORING', latestSpectrum = [], latestTremor = null, lastWaveAt = 0, graphFrame = 0;
   const makeSvg = (tag, attrs = {}) => { const node = document.createElementNS(svgNs, tag); Object.entries(attrs).forEach(([k,v]) => node.setAttribute(k,v)); return node; };
-  function plotBase(chart, prefix, xTicks, yTicks, x, y, xTitle, yTitle, plot) {
+  // Compute the plot from the SVG's *actual display dimensions*, not a fixed
+  // 760x230 viewBox. This prevents centering a tiny graphic inside a large card.
+  function chartLayout(chart) {
+    const rect = chart.getBoundingClientRect();
+    const width = Math.max(1, Math.round(rect.width || 760));
+    const height = Math.max(1, Math.round(rect.height || 230));
+    chart.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    // The card heading already names the units; use the SVG almost entirely
+    // for data. Reserve only enough for ticks, with no extra inner graph frame.
+    const left = width < 500 ? 48 : 60;
+    const right = width - 10;
+    const top = 5;
+    const bottom = Math.max(top + 16, height - 19);
+    return {width,height,left,right,top,bottom,pw:right-left,ph:bottom-top};
+  }
+  const clamp = (value, lo, hi) => Math.max(lo, Math.min(hi, value));
+  function plotBase(chart,prefix,xTicks,yTicks,x,y,xTitle,yTitle,paint,p) {
     chart.replaceChildren();
-    const defs = makeSvg('defs'), clip = makeSvg('clipPath', {id: `${prefix}-clip`});
-    clip.append(makeSvg('rect', {x:48,y:16,width:696,height:160})); defs.append(clip); chart.append(defs);
-    const group = makeSvg('g', {'clip-path':`url(#${prefix}-clip)`}); chart.append(group);
-    yTicks.forEach(t => { const yy=y(t.value); group.append(makeSvg('line',{x1:48,y1:yy,x2:744,y2:yy,class:'chart-grid'})); const label=makeSvg('text',{x:42,y:yy+4,'text-anchor':'end',class:'chart-axis'}); label.textContent=t.label; chart.append(label); });
-    xTicks.forEach(t => { const xx=x(t.value); group.append(makeSvg('line',{x1:xx,y1:16,x2:xx,y2:176,class:'chart-grid'})); const label=makeSvg('text',{x:xx,y:194,'text-anchor':'middle',class:'chart-axis'}); label.textContent=t.label; chart.append(label); });
-    const xt=makeSvg('text',{x:396,y:222,'text-anchor':'middle',class:'chart-axis'});xt.textContent=xTitle;chart.append(xt);
-    const yt=makeSvg('text',{x:4,y:18,class:'chart-axis'});yt.textContent=yTitle;chart.append(yt);
-    plot(group,x,y);
+    const clipId=`${prefix}-${chart.id}-clip`;
+    const defs=makeSvg('defs'),clip=makeSvg('clipPath',{id:clipId});
+    clip.append(makeSvg('rect',{x:p.left,y:p.top,width:p.pw,height:p.ph}));
+    defs.append(clip);chart.append(defs);
+    const plot=makeSvg('g',{'clip-path':`url(#${clipId})`});chart.append(plot);
+    const grid=makeSvg('g');chart.insertBefore(grid,plot);
+    yTicks.forEach(t=>{
+      const yy=y(t.value);
+      grid.append(makeSvg('line',{x1:p.left,y1:yy,x2:p.right,y2:yy,class:'chart-grid'}));
+      const label=makeSvg('text',{x:p.left-8,y:yy+4,'text-anchor':'end',class:'chart-axis'});
+      label.textContent=t.label;chart.append(label);
+    });
+    xTicks.forEach(t=>{
+      const xx=x(t.value);
+      grid.append(makeSvg('line',{x1:xx,y1:p.top,x2:xx,y2:p.bottom,class:'chart-grid'}));
+      const label=makeSvg('text',{x:xx,y:p.bottom+15,'text-anchor':'middle',class:'chart-axis'});
+      label.textContent=t.label;chart.append(label);
+    });
+    // Units are shown in each card header, and tick labels live at bottom.
+    // Repeating axis captions inside the plot stole ~20px of valuable height.
+    chart.setAttribute('aria-description', `${yTitle} versus ${xTitle}`);
+    paint(plot,x,y);
   }
+  let waveformDisplayLimit = 0.15;
   function drawWaveform(chart=waveformChart,prefix='wave') {
-    const now=waveformSamples.length ? waveformSamples[waveformSamples.length-1].timestamp_ms : 0;
-    const data=waveformSamples.filter(p=>now-p.timestamp_ms<=5000), yLimit=.5;
-    const x=t=>48+Math.max(0,Math.min(1,(t-(now-5000))/5000))*696;
-    const y=v=>16+(1-(Math.max(-yLimit,Math.min(yLimit,v))+yLimit)/(2*yLimit))*160;
-    plotBase(chart,prefix,[0,1,2,3,4,5].map(s=>({value:now-s*1000,label:s===0?'now':`-${s}`})),[-.5,-.25,0,.25,.5].map(v=>({value:v,label:v.toFixed(2)})),x,y,'Time (seconds)','Acceleration (g)',group=>{
-      if (!data.length) { const e=makeSvg('text',{x:396,y:105,class:'chart-empty'});e.textContent='No recent sensor samples';group.append(e);return; }
-      [['x_g','#80dec0'],['y_g','#a8c8ff'],['z_g','#ffac89']].forEach(([axis,color])=>{ const d=data.map((p,i)=>`${i?'L':'M'} ${x(p.timestamp_ms)} ${y(p[axis])}`).join(' ');group.append(makeSvg('path',{d,fill:'none',stroke:color,'stroke-width':2,'stroke-linecap':'round','stroke-linejoin':'round'})); });
-    });
-    if(chart===waveformChart) byId('waveform-status').textContent=data.length?`Live · ${data.length} samples · X, Y, Z (g)`:'Waiting for sensor samples';
+    const p=chartLayout(chart);
+    const now=waveformSamples.length?waveformSamples[waveformSamples.length-1].timestamp_ms:0;
+    const data=waveformSamples.filter(point=>now-point.timestamp_ms<=5000);
+    const maxAbs=data.reduce((acc,point)=>Math.max(acc,...['x_g','y_g','z_g'].map(k=>Math.abs(Number(point[k])||0))),0);
+    const tickStep=maxAbs>1?0.25:maxAbs>.2?0.1:0.05;
+    const desired=Math.max(.15,Math.ceil(maxAbs*1.12/tickStep)*tickStep);
+    waveformDisplayLimit=data.length ? Math.max(desired,waveformDisplayLimit*.975) : .15;
+    const limit=waveformDisplayLimit;
+    const x=t=>p.left+clamp((t-(now-5000))/5000,0,1)*p.pw;
+    const y=v=>p.top+(1-(clamp(Number(v)||0,-limit,limit)+limit)/(2*limit))*p.ph;
+    const waveFractions=p.ph<90?[-1,0,1]:[-1,-.5,0,.5,1];
+    const yTicks=waveFractions.map(f=>({value:f*limit,label:(f*limit).toFixed(limit<1?2:1)}));
+    const xTicks=(p.width<510?[5,3,1,0]:[5,4,3,2,1,0]).map(s=>({value:now-s*1000,label:s?`-${s}`:'now'}));
+    plotBase(chart,prefix,xTicks,yTicks,x,y,'Time (seconds)','Acceleration (g)',group=>{
+      if(!data.length){const e=makeSvg('text',{x:(p.left+p.right)/2,y:(p.top+p.bottom)/2,class:'chart-empty'});e.textContent='No recent sensor samples';group.append(e);return;}
+      [['x_g','#80dec0'],['y_g','#a8c8ff'],['z_g','#ffac89']].forEach(([axis,color])=>{
+        const path=data.map((point,i)=>`${i?'L':'M'} ${x(point.timestamp_ms)} ${y(point[axis])}`).join(' ');
+        group.append(makeSvg('path',{d:path,fill:'none',stroke:color,'stroke-width':2.05,'stroke-linecap':'round','stroke-linejoin':'round'}));
+      });
+    },p);
+    if(chart===waveformChart)byId('waveform-status').textContent=data.length?`Live · ${data.length} samples · X, Y, Z (g)`:'Waiting for sensor samples';
   }
-  let spectrumMax=.001;
+  let gyroDisplayLimit = 200;
+  function drawGyro(chart=gyroChart) {
+    const p=chartLayout(chart);
+    const now=gyroSamples.length?gyroSamples[gyroSamples.length-1].timestamp_ms:0;
+    const ageOf=t=>(now-t)>>>0;
+    const points=gyroSamples.filter(point=>ageOf(point.timestamp_ms)<=5000);
+    const maxAbs=points.reduce((acc,point)=>Math.max(acc,...['gx_dps','gy_dps','gz_dps'].map(k=>Math.abs(Number(point[k])||0))),0);
+    const desired=Math.max(200,Math.ceil(maxAbs*1.12/100)*100);
+    gyroDisplayLimit=points.length?Math.max(desired,gyroDisplayLimit*.975):200;
+    const limit=gyroDisplayLimit;
+    const xAge=age=>p.left+(5000-clamp(age,0,5000))/5000*p.pw;
+    const y=value=>p.top+(1-(clamp(Number(value)||0,-limit,limit)+limit)/(2*limit))*p.ph;
+    chart.replaceChildren();
+    const clipId=`gyro-${chart.id}-clip`;
+    const defs=makeSvg('defs'),clip=makeSvg('clipPath',{id:clipId});
+    clip.append(makeSvg('rect',{x:p.left,y:p.top,width:p.pw,height:p.ph}));defs.append(clip);chart.append(defs);
+    const grid=makeSvg('g');chart.append(grid);
+    const plot=makeSvg('g',{'clip-path':`url(#${clipId})`});chart.append(plot);
+    (p.ph<90?[-1,0,1]:[-1,-.5,0,.5,1]).forEach(f=>{
+      const value=f*limit,yy=y(value);
+      grid.append(makeSvg('line',{x1:p.left,y1:yy,x2:p.right,y2:yy,class:'chart-grid'}));
+      const label=makeSvg('text',{x:p.left-8,y:yy+4,'text-anchor':'end',class:'chart-axis'});
+      label.textContent=String(Math.round(value));chart.append(label);
+    });
+    (p.width<510?[[5000,'-5s'],[3000,'-3'],[1000,'-1'],[0,'now']]:[[5000,'-5s'],[4000,'-4'],[3000,'-3'],[2000,'-2'],[1000,'-1'],[0,'now']]).forEach(([age,label])=>{
+      const xx=xAge(age);
+      grid.append(makeSvg('line',{x1:xx,y1:p.top,x2:xx,y2:p.bottom,class:'chart-grid'}));
+      const text=makeSvg('text',{x:xx,y:p.bottom+15,'text-anchor':'middle',class:'chart-axis'});
+      text.textContent=label;chart.append(text);
+    });
+    // No duplicate captions: the graph title/metadata supply the units.
+    chart.setAttribute('aria-description','Angular velocity in degrees per second versus time');
+    if(!points.length){const e=makeSvg('text',{x:(p.left+p.right)/2,y:(p.top+p.bottom)/2,class:'chart-empty'});e.textContent='No recent gyroscope samples';plot.append(e);}
+    [['gx_dps','#6DD4C1'],['gy_dps','#a8c8ff'],['gz_dps','#e0b66b']].forEach(([axis,color])=>{
+      const d=points.map((point,index)=>`${index?'L':'M'} ${xAge(ageOf(point.timestamp_ms))} ${y(point[axis])}`).join(' ');
+      if(d)plot.append(makeSvg('path',{d,fill:'none',stroke:color,'stroke-width':2.05,'stroke-linecap':'round','stroke-linejoin':'round'}));
+    });
+    const markerColors={FIRST_TWIST:'#e0b66b',OPPOSITE_TWIST:'#6DD4C1',STILLNESS:'#f4e7cb',CONFIRMED:'#dc816b',REJECTED:'#d76b5c'};
+    for(const marker of (wristGesture?.markers||[])){
+      const age=ageOf(marker.timestamp_ms);if(age>5000)continue;
+      const xx=xAge(age),color=markerColors[marker.stage]||'#d9b46a';
+      plot.append(makeSvg('line',{x1:xx,y1:p.top,x2:xx,y2:p.bottom,stroke:color,'stroke-width':1.2,'stroke-dasharray':'3 2',opacity:.9}));
+      plot.append(makeSvg('circle',{cx:xx,cy:p.top+5,r:3,fill:color}));
+      const markerLabel={FIRST_TWIST:'1st',OPPOSITE_TWIST:'opposite',STILLNESS:'still',CONFIRMED:'confirmed',REJECTED:'rejected'}[marker.stage]||marker.stage;
+      const label=makeSvg('text',{x:clamp(xx+3,p.left,p.right-56),y:p.top+16,fill:color,'font-size':'10'});
+      label.textContent=markerLabel;plot.append(label);
+    }
+    const stage=wristGesture?.stage||'WAITING',reason=wristGesture?.rejection_reason||wristGesture?.reason||'';
+    const blocked=reason.includes('Blocked while');
+    const displayStage=!points.length?'NO SENSOR DATA':reason.includes('Replay data')?'REPLAY DISABLED':blocked?'BLOCKED':stage==='CONFIRMED'?'CONFIRMED':incidentState==='MONITORING'?'ARMED':incidentState==='CONFIRMING'&&stage==='WAITING'?'READY FOR FIRST TWIST':incidentState!=='CONFIRMING'?'PAUSED':stage.replaceAll('_',' ');
+    if(chart!==gyroChart)return;
+    byId('gesture-stage').textContent=displayStage;
+    const displayReason=reason.includes('Replay data')?reason:blocked?reason:incidentState==='MONITORING'?'Armed; gesture detection starts during CONFIRMING.':incidentState==='CONFIRMING'&&stage==='WAITING'?'Perform two opposite twists, then hold still for one full second.':reason||'Gesture detection is paused outside CONFIRMING.';
+    byId('gesture-debug').textContent=displayReason;
+    byId('gesture-debug').title=displayReason;
+  }
+  let spectrumMax=.00001;
   function drawSpectrum(chart=spectrumChart,prefix='spectrum') {
-    const points=latestSpectrum||[], observed=Math.max(0,...points.map(p=>p.power||0));
-    const target=Math.max(.001,observed*2.5), unit=10**Math.floor(Math.log10(target));
-    const nice=Math.ceil(target/unit)*unit; spectrumMax=nice>spectrumMax?nice:Math.max(nice,spectrumMax*.99);
-    const x=f=>48+(Math.max(3,Math.min(20,f))-3)/17*696, y=v=>176-Math.max(0,Math.min(spectrumMax,v))/spectrumMax*160;
-    plotBase(chart,prefix,[3,6,9,12,16,20].map(v=>({value:v,label:String(v)})),[0,.25,.5,.75,1].map(f=>({value:f*spectrumMax,label:(f*spectrumMax).toPrecision(2)})),x,y,'Frequency (Hz)','Power',group=>{
-      group.append(makeSvg('rect',{x:x(3),y:16,width:x(12)-x(3),height:160,fill:'#17684e',opacity:.14}));
-      if(!points.length){const e=makeSvg('text',{x:396,y:105,class:'chart-empty'});e.textContent='Waiting for spectrum data';group.append(e);return;}
-      const d=points.map((p,i)=>`${i?'L':'M'} ${x(p.hz)} ${y(p.power)}`).join(' ');group.append(makeSvg('path',{d,fill:'none',stroke:'#80dec0','stroke-width':2.5,'stroke-linejoin':'round'}));
-      const peak=points.reduce((a,b)=>a.power>b.power?a:b);group.append(makeSvg('circle',{cx:x(peak.hz),cy:y(peak.power),r:5,fill:'#ffac89',stroke:'#1a2b39','stroke-width':2}));
-    });
-    if(chart===spectrumChart) byId('spectrum-summary').textContent=latestTremor?`Dominant frequency ${latestTremor.peak_hz.toFixed(2)} Hz · Band RMS ${latestTremor.band_rms_g.toFixed(4)} g`:'Waiting for enough sensor samples';
+    const p=chartLayout(chart),points=latestSpectrum||[];
+    const visiblePoints=points.filter(point=>point.hz>=3&&point.hz<=12);
+    const observed=Math.max(0,...visiblePoints.map(point=>Number(point.power)||0));
+    const target=Math.max(.00001,observed*2.5),unit=10**Math.floor(Math.log10(target));
+    const nice=Math.ceil(target/unit)*unit;
+    spectrumMax=visiblePoints.length?Math.max(nice,spectrumMax*.98):.00001;
+    const x=f=>p.left+clamp((f-3)/9,0,1)*p.pw;
+    const y=value=>p.bottom-clamp((Number(value)||0)/spectrumMax,0,1)*p.ph;
+    const xTicks=[3,4.5,6,7.5,9,10.5,12].map(value=>({value,label:String(value)}));
+    const yTicks=(p.ph<90?[0,.5,1]:[0,.25,.5,.75,1]).map(f=>({value:f*spectrumMax,label:(f*spectrumMax).toPrecision(2)}));
+    plotBase(chart,prefix,xTicks,yTicks,x,y,'Frequency (Hz)','Power',group=>{
+      group.append(makeSvg('rect',{x:p.left,y:p.top,width:p.pw,height:p.ph,fill:'#17684e',opacity:.08}));
+      if(!visiblePoints.length){const e=makeSvg('text',{x:(p.left+p.right)/2,y:(p.top+p.bottom)/2,class:'chart-empty'});e.textContent='No spectrum data in 3–12 Hz';group.append(e);return;}
+      const d=visiblePoints.map((point,i)=>`${i?'L':'M'} ${x(point.hz)} ${y(point.power)}`).join(' ');
+      group.append(makeSvg('path',{d,fill:'none',stroke:'#80dec0','stroke-width':2.2,'stroke-linejoin':'round'}));
+      const peak=visiblePoints.reduce((a,b)=>a.power>b.power?a:b);
+      group.append(makeSvg('circle',{cx:x(peak.hz),cy:y(peak.power),r:4,fill:'#ffac89',stroke:'#1a2b39','stroke-width':1.5}));
+    },p);
+    if(chart===spectrumChart)byId('spectrum-summary').textContent=latestTremor?`Dominant frequency ${latestTremor.peak_hz.toFixed(2)} Hz · Band RMS ${latestTremor.band_rms_g.toFixed(4)} g`:'Waiting for enough sensor samples';
   }
-  function scheduleGraphs(){if(graphFrame)return;graphFrame=requestAnimationFrame(()=>{graphFrame=0;drawWaveform();drawSpectrum();if(byId('waveform-dialog').open)drawWaveform(waveformModalChart,'wave-modal');if(byId('spectrum-dialog').open)drawSpectrum(spectrumModalChart,'spectrum-modal');});}
+  function scheduleGraphs(){if(graphFrame)return;graphFrame=requestAnimationFrame(()=>{graphFrame=0;drawWaveform();drawGyro();drawSpectrum();if(byId('waveform-dialog').open)drawWaveform(waveformModalChart,'wave-modal');if(byId('gyro-dialog').open)drawGyro(gyroModalChart);if(byId('spectrum-dialog').open)drawSpectrum(spectrumModalChart,'spectrum-modal');});}
   let latestEpisodeSummary = null, completedEpisodeHistory = [], activeFullReport = null;
   const reportView = {scale:1, offset:0, dragX:null, dragOffset:0};
   const formatElapsed = ms => Number.isFinite(ms) ? `${(ms/1000).toFixed(1)} s sensor time` : 'unavailable';
@@ -303,6 +618,7 @@
     completedEpisodeHistory = Array.isArray(history) ? history : [];
     if (!report) {
       byId('episode-status').textContent = 'No active episode report';
+      byId('episode-summary-state').textContent = 'No active episode';
       byId('episode-source').textContent = 'AWAITING DATA';
       byId('episode-duration').textContent = byId('episode-average').textContent = byId('episode-peak').textContent = byId('episode-bursts').textContent = '—';
       byId('episode-frequency').textContent = byId('episode-above-time').textContent = '—';
@@ -313,6 +629,7 @@
       report.status === 'RECOVERING' ? 'Recovery period · recording continues' :
       report.status === 'DATA_GAP' ? 'Recording paused · sensor data gap' : 'Episode in progress · collecting movement data';
     byId('episode-status').textContent = state;
+    byId('episode-summary-state').textContent = report.status === 'REPORT_READY' ? 'Report ready' : report.status === 'RECOVERING' ? 'Recovery · recording' : report.status === 'DATA_GAP' ? 'Sensor data gap' : 'Episode in progress';
     byId('episode-source').textContent = report.source_type==='arduino'?'REAL ARDUINO DATA':'SIMULATED / REPLAY';
     byId('episode-duration').textContent = `${Math.floor((report.duration_seconds||0)/60).toString().padStart(2,'0')}:${Math.floor((report.duration_seconds||0)%60).toString().padStart(2,'0')}`;
     byId('episode-average').textContent = Number.isFinite(report.average_movement_g_rms) ? `${report.average_movement_g_rms.toFixed(3)} g RMS` : '—';
@@ -462,7 +779,8 @@
     else reportView.scale=Math.max(1,Math.min(24,reportView.scale*(button.dataset.zoom==='in'?1.5:1/1.5)));
     reportView.offset=Math.min(reportView.offset,1-1/reportView.scale);drawFullEpisodeReport();
   });
-  window.addEventListener('resize',()=>{if(byId('report-dialog').open)drawFullEpisodeReport();});
+  window.addEventListener('resize',()=>{scheduleGraphs();if(byId('report-dialog').open)drawFullEpisodeReport();});
+  if('ResizeObserver' in window){const observer=new ResizeObserver(()=>scheduleGraphs());[waveformChart,gyroChart,spectrumChart].forEach(el=>observer.observe(el));}
   function shareLocation() {
     if (!navigator.geolocation) { byId('location-share-status').textContent = 'Location unavailable'; return; }
     caregiverKey = window.prompt('Enter the caregiver access key shown in the backend terminal:') || '';
@@ -489,6 +807,10 @@
     byId('share-location').onclick = () => { navigator.geolocation.clearWatch(locationWatch); locationWatch = null; caregiverKey = ''; byId('share-location').textContent = 'Share my location with caregiver'; byId('location-share-status').textContent = 'Location sharing is off.'; byId('share-location').onclick = shareLocation; };
   }
   function render(data) {
+    incidentState=data.incident||'MONITORING';
+    const criticalIncident=incidentState!=='MONITORING'&&['fall','fall_and_seizure_like_motion','seizure_like_motion'].includes(data.incident_type);
+    document.body.classList.toggle('critical-alert',criticalIncident);
+    byId('watch-panel').classList.toggle('critical',criticalIncident);
     byId('source').textContent = data.source;
     byId('sensor-status').textContent = data.sensor_status;
     const incidentType = data.incident_type === 'fall_and_seizure_like_motion' ? 'Possible fall and seizure-like movement'
@@ -534,11 +856,11 @@
       waveformSamples = data.waveform.slice(-250);
       lastWaveAt = waveformSamples.length ? Date.now() : lastWaveAt;
     }
+    if (Array.isArray(data.gyro_waveform)) gyroSamples = data.gyro_waveform.slice(-250);
+    wristGesture = data.wrist_gesture || null;
     if (Array.isArray(data.tremor_spectrum)) latestSpectrum = data.tremor_spectrum;
     if (data.tremor) latestTremor = data.tremor;
     scheduleGraphs();
-    byId('motion').textContent = data.motion ? `X ${data.motion.x_g_rms.toFixed(3)}  ·  Y ${data.motion.y_g_rms.toFixed(3)}  ·  Z ${data.motion.z_g_rms.toFixed(3)}` : 'Waiting for data';
-    byId('windows').textContent = `${data.windows} windows received`;
     byId('cancel').disabled = byId('help').disabled = !['CONFIRMING', 'VERIFYING'].includes(data.incident);
     byId('pause-broadcast').disabled = !data.broadcast_active;
     byId('pause-broadcast').textContent = data.broadcast_paused ? 'Resume broadcast' : 'Pause broadcast';
@@ -557,6 +879,8 @@
   setInterval(() => {
     if (lastWaveAt && Date.now() - lastWaveAt > 1500) {
       waveformSamples = [];
+      gyroSamples = [];
+      wristGesture = {stage:'WAITING', reason:'Sensor disconnected · no recent gyroscope samples', markers:[]};
       byId('waveform-status').textContent = 'Sensor disconnected · no recent samples';
       scheduleGraphs();
     }
@@ -592,7 +916,7 @@
   };
   byId('share-location').onclick = shareLocation;
   document.querySelectorAll('[data-expand]').forEach(button => button.onclick = () => {
-    const dialog = byId(button.dataset.expand); dialog.showModal(); scheduleGraphs();
+    const dialog = byId(button.dataset.expand); dialog.showModal(); scheduleGraphs(); requestAnimationFrame(scheduleGraphs);
   });
   document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => byId(button.dataset.close).close());
   byId('full-report').onclick = () => {

@@ -49,13 +49,15 @@ class IncidentManager:
         self.emit('Voice captured; verifying response.')
         return True
 
-    def cancel(self):
+    def cancel(self, source='wearer'):
         if self.state not in ('CONFIRMING', 'VERIFYING'):
             return False
         self.state = 'MONITORING'
         self.kind = None
         self.deadline = None
-        self.emit('Incident cancelled by wearer; status: MONITORING')
+        self.emit('Cancelled by wrist gesture; status: MONITORING'
+                  if source == 'wrist gesture'
+                  else 'Incident cancelled by wearer; status: MONITORING')
         return True
 
     def caregiver_pending(self):

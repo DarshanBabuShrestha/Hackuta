@@ -36,6 +36,8 @@ class Dashboard:
             'tremor': None,
             'tremor_spectrum': [],
             'waveform': [],
+            'gyro_waveform': [],
+            'wrist_gesture': {'stage': 'ARMED', 'reason': 'Gesture detection starts during CONFIRMING', 'markers': []},
             'seizure': None,
             'seizure_motion': None,
             'windows': 0,
