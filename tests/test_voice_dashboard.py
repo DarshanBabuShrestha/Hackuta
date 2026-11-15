@@ -32,7 +32,7 @@ def test_enrollment_uses_dashboard_command_without_terminal_prompt():
 def test_websocket_accepts_enrollment_command():
     async def check():
         commands = queue.Queue()
-        dashboard = Dashboard(commands, 'COM9', voice_enabled=True)
+        dashboard = Dashboard(commands, 'COM9', voice_enabled=True, simulation_waiting=True)
 
         class Socket:
             def __init__(self):
@@ -56,9 +56,13 @@ def test_websocket_accepts_enrollment_command():
         task = asyncio.create_task(route.endpoint(socket))
         initial = await asyncio.wait_for(socket.sent.get(), 2)
         assert initial['voice_enabled'] and not initial['voice_can_enroll']
+        assert initial['simulation_waiting']
         await socket.received.put({'command': 'enroll_voice'})
         await asyncio.sleep(.05)
         assert commands.get_nowait() == 'enroll_voice'
+        await socket.received.put({'command': 'start_simulation'})
+        await asyncio.sleep(.05)
+        assert commands.get_nowait() == 'start_simulation'
         await socket.received.put(None)
         await asyncio.wait_for(task, 2)
 

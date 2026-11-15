@@ -1,4 +1,4 @@
-"""Window classifier and cooldown."""
+"""Window classifier using the trained model's own prediction."""
 import logging
 import time
 from pathlib import Path
@@ -13,9 +13,10 @@ DEFAULT_MODEL = Path(__file__).resolve().parents[1] / 'ml' / 'odyssey_window_mod
 
 
 class FallDetector:
-    def __init__(self, model_path=DEFAULT_MODEL, threshold=0.7, cooldown=20, clock=time.monotonic):
+    def __init__(self, model_path=DEFAULT_MODEL, threshold=0.7, cooldown=10,
+                 clock=time.monotonic):
         if not 0 <= threshold <= 1 or cooldown < 0:
-            raise ValueError('Invalid threshold or cooldown')
+            raise ValueError('Invalid fall threshold or cooldown')
         artifact = joblib.load(model_path)
         if artifact.get('feature_names') != FEATURE_NAMES or artifact.get('window_size') != WINDOW_SIZE:
             raise ValueError('Model feature contract mismatch')
@@ -30,9 +31,12 @@ class FallDetector:
         probabilities = self.model.predict_proba(features)[0]
         probability = float(probabilities[list(self.model.classes_).index('fall')])
         label = 'fall' if probability >= self.threshold else 'adl'
+        LOG.info('Fall model class: %s; fall probability: %.3f', label, probability)
+        return label, probability
+
+    def should_trigger(self):
         now = self.clock()
-        trigger = label == 'fall' and now - self.last_trigger >= self.cooldown
-        if trigger:
-            self.last_trigger = now
-        LOG.info('Fall class: %s; trigger: %s', label, trigger)
-        return label, probability, trigger
+        if now - self.last_trigger < self.cooldown:
+            return False
+        self.last_trigger = now
+        return True

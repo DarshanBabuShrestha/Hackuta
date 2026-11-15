@@ -27,6 +27,7 @@
     #cancel { background: #80dec0; color: #10291f; }
     #help { background: #ffac89; color: #351b13; }
     #enroll { background: #a8c8ff; color: #10233f; }
+    #start-replay { background: #e7cd8c; color: #30250c; }
     ul { list-style: none; margin: 0; padding: 0; }
     li { padding: 9px 0; border-top: 1px solid #304757; }
     li:first-child { border-top: 0; }
@@ -44,18 +45,21 @@
     <section class="card wide">
       <div class="row"><h2>Incident status</h2><span id="updated" class="muted">No data yet</span></div>
       <div id="incident" class="value">Waiting for backend</div><p id="incident-help">A confirmation prompt will appear for a possible incident.</p>
+      <p id="caregiver-status">Caregiver page: waiting for backend</p>
       <div class="buttons">
         <button id="cancel" disabled>I'm okay</button>
         <button id="help" disabled>Need help</button>
       </div>
     </section>
     <section class="card wide"><h2>Voice confirmation</h2><div id="voice" class="value">Waiting for backend</div><p id="voice-help">Uses this computer's microphone when a possible fall starts confirmation.</p><div class="buttons"><button id="enroll" disabled>Record my voice</button></div></section>
+    <section class="card wide" id="replay-card" hidden><h2>Sensor replay</h2><p>Record your voice first, then start the replay. You can also start without voice confirmation.</p><div class="buttons"><button id="start-replay">Start replay</button></div></section>
     <section class="card"><h2>Tremor-like motion</h2><div id="tremor" class="value">Waiting for data</div></section>
-    <section class="card"><h2>Seizure-like motion</h2><div id="seizure" class="value">Waiting for data</div></section>
+    <section class="card"><h2>Fall model</h2><div id="fall" class="value">Waiting for data</div></section>
+    <section class="card"><h2>Possible seizure-like movement</h2><div id="seizure" class="value">Waiting for data</div><div id="seizure-motion"></div></section>
     <section class="card wide"><h2>Motion · axis RMS (g)</h2><div id="motion" class="value">Waiting for data</div><p id="windows">0 windows received</p></section>
     <section class="card wide"><h2>Recent events</h2><ul id="events"><li class="muted">No events yet</li></ul></section>
   </div>
-  <footer>Experimental motion demo. No caregiver is contacted. Keep this dashboard on your own computer.</footer>
+  <footer>Experimental motion demo. Phone calls require Twilio configuration. Keep this wearer dashboard on this computer.</footer>
 </main>
 <script>
   const byId = id => document.getElementById(id);
@@ -64,23 +68,29 @@
   function render(data) {
     byId('source').textContent = data.source;
     byId('sensor-status').textContent = data.sensor_status;
-    const incidentType = data.incident_type === 'seizure_like_motion' ? 'Seizure-like motion' : 'Fall';
+    const incidentType = data.incident_type === 'fall_and_seizure_like_motion' ? 'Possible fall and seizure-like movement'
+      : data.incident_type === 'seizure_like_motion' ? 'Possible seizure-like movement' : 'Fall';
     byId('incident').textContent = data.incident === 'MONITORING' ? 'Monitoring' : `${incidentType} · ${data.incident.replaceAll('_', ' ')}`;
     byId('incident-help').textContent = ['CONFIRMING', 'VERIFYING'].includes(data.incident)
       ? `Possible ${incidentType.toLowerCase()} detected. Are you okay? Use a button or respond by voice if enrolled.`
-      : data.incident === 'CAREGIVER_PENDING' ? 'No confirmation was received; caregiver alert required.'
+      : data.incident === 'CAREGIVER_PENDING' ? `Caregiver alert: ${data.caregiver_alert?.detail || 'opening'}.`
       : 'A confirmation prompt will appear for a possible fall or seizure-like motion.';
+    byId('caregiver-status').textContent = data.caregiver_connected ? 'Caregiver page connected' : 'Caregiver page disconnected; app alert may not be seen';
     byId('voice').textContent = data.voice_enabled ? data.voice_status : 'Off';
     const microphone = data.voice_device || "this computer's microphone";
     byId('voice-help').textContent = !data.voice_enabled ? 'Voice confirmation is not enabled for this session.'
+      : data.voice_status.startsWith('Voice model unavailable') ? 'Voice setup failed. Check the backend terminal and install the voice dependencies in the active Python environment.'
       : data.voice_status.startsWith('Listening') || data.voice_status.startsWith('Recording enrollment') ? `Speak now into ${microphone}: say "I'm okay".`
       : data.voice_enrolled ? `Using ${microphone}. The microphone will listen after a possible fall.`
       : !data.voice_can_enroll ? 'Preparing the computer microphone for enrollment.'
       : `Using ${microphone}. Click Record my voice, then say "I'm okay".`;
     byId('enroll').disabled = !data.voice_can_enroll || data.incident !== 'MONITORING';
+    byId('replay-card').hidden = !data.simulation_waiting;
     byId('updated').textContent = data.updated_at ? `Updated ${new Date(data.updated_at).toLocaleTimeString()}` : 'No data yet';
     byId('tremor').textContent = data.tremor ? `${data.tremor.label.replaceAll('_', ' ')} · ${data.tremor.peak_hz.toFixed(1)} Hz` : data.enabled.tremor ? 'Waiting for data' : 'Off in this mode';
-    byId('seizure').textContent = data.seizure ? `${data.seizure.label.replaceAll('_', ' ')} · ${Math.round(data.seizure.probability * 100)}%` : data.enabled.seizure ? 'Waiting for data' : 'Off in this mode';
+    byId('fall').textContent = data.fall ? `${data.fall.label.replaceAll('_', ' ')} · ${Math.round(data.fall.probability * 100)}% fall score` : data.enabled.fall ? 'Waiting for data' : 'Off in this mode';
+    byId('seizure').textContent = data.seizure ? `${data.seizure.label.replaceAll('_', ' ')} · ${Math.round(data.seizure.probability * 100)}% seizure-like score` : data.enabled.seizure ? 'Waiting for data' : 'Off in this mode';
+    byId('seizure-motion').textContent = data.seizure_motion ? `${data.seizure_motion.motion} · rhythmic ${data.seizure_motion.rhythmic_seconds.toFixed(1)}s · ${data.seizure_motion.reason}` : '';
     byId('motion').textContent = data.motion ? `X ${data.motion.x_g_rms.toFixed(3)}  ·  Y ${data.motion.y_g_rms.toFixed(3)}  ·  Z ${data.motion.z_g_rms.toFixed(3)}` : 'Waiting for data';
     byId('windows').textContent = `${data.windows} windows received`;
     byId('cancel').disabled = byId('help').disabled = !['CONFIRMING', 'VERIFYING'].includes(data.incident);
@@ -96,7 +106,7 @@
     }
   }
   function connect() {
-    socket = new WebSocket(`ws://${location.host}/ws`);
+    socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
     socket.onopen = () => { byId('connection').textContent = 'Live'; byId('connection').className = 'pill live'; };
     socket.onmessage = event => render(JSON.parse(event.data));
     socket.onclose = () => {
@@ -114,6 +124,9 @@
       byId('enroll').disabled = true;
       socket.send(JSON.stringify({command: 'enroll_voice'}));
     }
+  };
+  byId('start-replay').onclick = () => {
+    if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({command: 'start_simulation'}));
   };
   connect();
 </script>

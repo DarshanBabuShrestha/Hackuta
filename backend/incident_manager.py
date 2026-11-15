@@ -16,7 +16,8 @@ class IncidentManager:
             return False
         self.kind = kind
         self.state = 'CANDIDATE'
-        label = 'SEIZURE-LIKE MOTION' if kind == 'seizure_like_motion' else 'FALL'
+        label = ('POSSIBLE FALL AND SEIZURE-LIKE MOVEMENT' if kind == 'fall_and_seizure_like_motion'
+                 else 'POSSIBLE SEIZURE-LIKE MOVEMENT' if kind == 'seizure_like_motion' else 'FALL')
         self.emit(f'{label} DETECTED')
         self.state = 'CONFIRMING'
         self.deadline = None if defer_timer else self.clock() + self.duration
@@ -55,6 +56,16 @@ class IncidentManager:
         self.state = 'CAREGIVER_PENDING'
         self.deadline = None
         self.emit('CAREGIVER ALERT REQUIRED')
+        return True
+
+    def close_caregiver(self):
+        """Finish an alert cycle so later sensor triggers can create a new incident."""
+        if self.state != 'CAREGIVER_PENDING':
+            return False
+        self.state = 'MONITORING'
+        self.kind = None
+        self.deadline = None
+        self.emit('Caregiver alert cycle finished; monitoring resumed')
         return True
 
     def tick(self):

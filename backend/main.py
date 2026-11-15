@@ -2,7 +2,9 @@
 import argparse
 import json
 import logging
+import os
 import queue
+import secrets
 import socket
 import sys
 import threading
@@ -12,9 +14,12 @@ from pathlib import Path
 import numpy as np
 
 from backend.fall_detector import FallDetector
+from backend.caregiver_alerts import CaregiverAlerts
 from backend.features import G, WINDOW_SIZE
 from backend.incident_manager import IncidentManager
-from backend.seizure_detector import SeizureMotionDetector
+from backend.seizure_detector import (DEFAULT_THRESHOLD, HIGH_HZ, LOW_HZ,
+                                      MIN_BAND_POWER_SHARE, MIN_MOTION_RMS_G, MIN_PEAK_POWER_SHARE,
+                                      RHYTHMIC_SECONDS, SeizureMotionDetector)
 from backend.serial_bridge import SerialBridge, Sample, parse_message
 from backend.tremor_detector import TremorMotionDetector
 
@@ -98,20 +103,32 @@ def main(argv=None):
     parser.add_argument('--baud', type=int, default=115200)
     parser.add_argument('--simulate', type=Path, help='BITS-2 recording or Arduino IMU CSV')
     parser.add_argument('--speed', type=float, default=1, help='Replay speed; 0 for fastest')
-    parser.add_argument('--threshold', type=float, default=.7)
-    parser.add_argument('--cooldown', type=float, default=20)
+    parser.add_argument('--threshold', type=float, default=0.7,
+                        help='Fall probability threshold')
+    parser.add_argument('--cooldown', type=float, default=10,
+                        help='Minimum seconds between fall triggers')
     parser.add_argument('--confirmation-seconds', type=float, default=15,
                         help='Seconds to wait for wearer confirmation after a possible fall')
     parser.add_argument('--voice-confirmation', action='store_true',
                         help='Enable the dashboard with voice confirmation (also enabled by --web)')
     parser.add_argument('--voice-model-dir', type=Path)
-    parser.add_argument('--seizure-threshold', type=float, default=.5,
-                        help='Experimental simulated-seizure-like movement threshold')
+    parser.add_argument('--seizure-motion-rms-g', type=float, default=MIN_MOTION_RMS_G,
+                        help='Experimental minimum one-second dynamic acceleration RMS in g')
+    parser.add_argument('--seizure-peak-power-share', type=float, default=MIN_PEAK_POWER_SHARE,
+                        help='Experimental minimum FFT peak share of non-DC power')
+    parser.add_argument('--seizure-band-power-share', type=float, default=MIN_BAND_POWER_SHARE,
+                        help='Experimental minimum rhythmic-band share of non-DC power')
+    parser.add_argument('--seizure-low-hz', type=float, default=LOW_HZ)
+    parser.add_argument('--seizure-high-hz', type=float, default=HIGH_HZ)
+    parser.add_argument('--seizure-rhythmic-seconds', type=float, default=RHYTHMIC_SECONDS)
+    parser.add_argument('--seizure-threshold', type=float, default=DEFAULT_THRESHOLD)
     parser.add_argument('--mode', choices=('all', 'fall', 'tremor', 'seizure', 'epilepsy'), default='all',
                         help='Run all detectors or one detector for an isolated test')
     parser.add_argument('--web', action='store_true', help='Serve the local live dashboard')
     parser.add_argument('--no-web', action='store_true', help='Run without the local dashboard')
     parser.add_argument('--web-port', type=int, default=8000, help='Local dashboard port')
+    parser.add_argument('--web-host', default='127.0.0.1',
+                        help='Bind address; use 0.0.0.0 for a caregiver phone on the same network')
     args = parser.parse_args(argv)
     if args.no_web and args.voice_confirmation:
         parser.error('--voice-confirmation requires the dashboard')
@@ -124,7 +141,7 @@ def main(argv=None):
     if args.web:
         try:
             with socket.socket() as probe:
-                probe.bind(('127.0.0.1', args.web_port))
+                probe.bind((args.web_host, args.web_port))
         except OSError as exc:
             parser.error(f'Dashboard port {args.web_port} is in use; stop the other backend or choose --web-port: {exc}')
     logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -132,17 +149,34 @@ def main(argv=None):
     run_tremor = args.mode in ('all', 'tremor')
     run_seizure = args.mode in ('all', 'seizure', 'epilepsy')
     voice_enabled = args.web and (run_fall or run_seizure)
-    detector = FallDetector(threshold=args.threshold, cooldown=args.cooldown) if run_fall else None
+    detector = (FallDetector(threshold=args.threshold, cooldown=args.cooldown)
+                if run_fall else None)
     tremor_detector = TremorMotionDetector() if run_tremor else None
-    seizure_detector = SeizureMotionDetector(threshold=args.seizure_threshold) if run_seizure else None
+    seizure_detector = (SeizureMotionDetector(
+        motion_rms_g=args.seizure_motion_rms_g,
+        peak_power_share=args.seizure_peak_power_share,
+        band_power_share=args.seizure_band_power_share,
+        low_hz=args.seizure_low_hz, high_hz=args.seizure_high_hz,
+        rhythmic_seconds=args.seizure_rhythmic_seconds,
+        threshold=args.seizure_threshold) if run_seizure else None)
     commands = queue.Queue()
     dashboard = None
+    caregiver_key = os.environ.get('ODYSSEY_CAREGIVER_KEY') or secrets.token_urlsafe(16)
     if args.web:
         from backend.dashboard import Dashboard, serve
         dashboard = Dashboard(commands, str(args.simulate or args.port),
                               enabled={'fall': run_fall, 'tremor': run_tremor,
                                        'seizure': run_seizure},
-                              voice_enabled=voice_enabled)
+                              voice_enabled=voice_enabled, caregiver_key=caregiver_key,
+                              simulation_waiting=bool(args.simulate))
+
+    def alert_message(message):
+        print(message, flush=True)
+        if dashboard:
+            dashboard.event(message)
+            dashboard.publish(caregiver_alert=alerts.alert.copy() if alerts.alert else None)
+
+    alerts = CaregiverAlerts(emit=alert_message)
 
     def incident_message(message):
         print(message, flush=True)
@@ -151,11 +185,15 @@ def main(argv=None):
             dashboard.publish(incident=incident.state, incident_type=incident.kind)
             if voice_enabled and voice_recording and message == 'CAREGIVER ALERT REQUIRED':
                 dashboard.publish(voice_status='Voice confirmation did not complete')
+        if message == 'CAREGIVER ALERT REQUIRED':
+            alerts.start(incident.kind)
 
     incident = IncidentManager(duration=args.confirmation_seconds, emit=incident_message)
     if dashboard:
-        threading.Thread(target=serve, args=(dashboard, args.web_port), daemon=True).start()
+        threading.Thread(target=serve, args=(dashboard, args.web_port, args.web_host), daemon=True).start()
         print(f'Dashboard: http://127.0.0.1:{args.web_port}', flush=True)
+        print(f'Caregiver page: http://<this-computer-LAN-IP>:{args.web_port}/caregiver', flush=True)
+        print(f'Caregiver access key: {caregiver_key}', flush=True)
     voice = None
     voice_duration = 4
     enrolling = False
@@ -171,10 +209,14 @@ def main(argv=None):
     # serial.readline() waits or a replay ends.
     windows = queue.Queue(maxsize=8)
     stop = threading.Event()
+    simulation_start = threading.Event()
+    if not args.simulate or not args.web:
+        simulation_start.set()
     collection_errors = []
 
     def collect():
         try:
+            simulation_start.wait()
             for window in source:
                 try:
                     windows.put_nowait(window)
@@ -192,6 +234,7 @@ def main(argv=None):
                          args=(args.voice_model_dir, voice_events), daemon=True).start()
     frame_index = 0
     seizure_was_detected = False
+    fall_was_detected = False
     tremor_was_detected = False
     try:
         while True:
@@ -219,6 +262,9 @@ def main(argv=None):
             previous_state = incident.state
             while not commands.empty():
                 command = commands.get_nowait()
+                if isinstance(command, dict) and command.get('command') == 'acknowledge':
+                    alerts.acknowledge(command.get('alert_id'))
+                    continue
                 if command in ('c', 'cancel', 'okay'):
                     if incident.cancel() and dashboard and voice:
                         dashboard.publish(voice_status='Cancelled manually')
@@ -231,7 +277,15 @@ def main(argv=None):
                     dashboard.publish(voice_status='Starting enrollment', voice_can_enroll=False)
                     threading.Thread(target=enroll_voice,
                                      args=(voice, voice_events, dashboard), daemon=True).start()
+                elif command == 'start_simulation' and args.simulate and args.web and not simulation_start.is_set():
+                    simulation_start.set()
+                    dashboard.publish(simulation_waiting=False)
+                    dashboard.event('Sensor replay started')
             incident.tick()
+            alerts.tick()
+            if (incident.state == 'CAREGIVER_PENDING' and alerts.alert and
+                    alerts.alert['status'] in ('ACKNOWLEDGED', 'CALL_QUEUED', 'CALL_FAILED')):
+                incident.close_caregiver()
             if dashboard and incident.state != previous_state:
                 dashboard.publish(incident=incident.state, incident_type=incident.kind)
             while not voice_results.empty():
@@ -270,7 +324,10 @@ def main(argv=None):
             try:
                 window = windows.get(timeout=.1)
             except queue.Empty:
-                if stop.is_set() and windows.empty() and incident.state not in ('CONFIRMING', 'VERIFYING'):
+                if (stop.is_set() and windows.empty() and
+                        (collection_errors or
+                         (not args.web and incident.state not in ('CONFIRMING', 'VERIFYING')
+                          and not alerts.unfinished))):
                     break
                 continue
             # SerialBridge emits 32 samples with a 16-sample hop at 50 Hz.
@@ -290,17 +347,29 @@ def main(argv=None):
             fall_trigger = False
             if seizure_detector:
                 seizure_result = seizure_detector.push_window(window, end_ms)
+                motion_status = getattr(seizure_detector, 'status', None)
+                if motion_status:
+                    probability = motion_status['probability']
+                    score_text = 'waiting' if probability is None else f'{probability:.3f}'
+                    print(f"Possible seizure-like movement check: motion={motion_status['motion']}; "
+                          f"rhythmic={motion_status['rhythmic_seconds']:.2f}s; "
+                          f"ML probability={score_text}; reason={motion_status['reason']}",
+                          flush=True)
+                    update['seizure_motion'] = motion_status.copy()
                 if seizure_result is not None:
                     seizure_label, seizure_probability = seizure_result
-                    seizure_detected = seizure_label == 'simulated_seizure_like_motion'
-                    print(f'Seizure-like motion: {seizure_label}; probability: '
+                    seizure_detected = seizure_label == 'possible_seizure_like_movement'
+                    print(f'Possible seizure-like movement: {seizure_label}; probability: '
                           f'{seizure_probability:.2f}', flush=True)
                     if seizure_detected and not seizure_was_detected:
                         seizure_trigger = True
                         if dashboard and incident.state != 'MONITORING':
-                            dashboard.event('Seizure-like motion detected (experimental)')
+                            dashboard.event('Possible seizure-like movement detected (experimental)')
                     seizure_was_detected = seizure_detected
-                    update['seizure'] = {'label': seizure_label, 'probability': seizure_probability}
+                    update['seizure'] = {
+                        'label': seizure_label,
+                        'probability': seizure_probability,
+                    }
             if tremor_detector:
                 tremor_result = tremor_detector.push_window(window)
                 if tremor_result is not None:
@@ -314,10 +383,16 @@ def main(argv=None):
                     update['tremor'] = {'label': tremor_label, 'peak_hz': peak_hz,
                                         'band_rms_g': band_rms_g}
             if detector:
-                _, _, fall_trigger = detector.predict(window)
+                fall_label, fall_probability = detector.predict(window)
+                fall_detected = fall_label == 'fall'
+                fall_trigger = (fall_detected and not fall_was_detected and
+                                detector.should_trigger())
+                fall_was_detected = fall_detected
+                update['fall'] = {'label': fall_label, 'probability': fall_probability}
                 print(f'Status: {incident.state}', flush=True)
-            candidate_kind = ('seizure_like_motion' if seizure_trigger else
-                              'fall' if fall_trigger else None)
+            candidate_kind = ('fall_and_seizure_like_motion' if fall_trigger and seizure_trigger
+                              else 'fall' if fall_trigger else
+                              'seizure_like_motion' if seizure_trigger else None)
             if candidate_kind and incident.state == 'MONITORING':
                 voice_active = bool(voice and voice.owner_voice is not None and not enrolling)
                 incident.duration = voice_duration if voice_active else args.confirmation_seconds

@@ -47,15 +47,38 @@ def test_window_gap_and_hop():
     assert len(bridge.buffer) == 1
 
 
-def test_model_load_predict_and_cooldown():
-    now = [0]
-    detector = FallDetector(threshold=0, cooldown=20, clock=lambda: now[0])
+def test_model_load_predict():
+    detector = FallDetector()
     window = np.tile([0, 0, 1, 0, 0, 0], (WINDOW_SIZE, 1))
-    label, probability, first = detector.predict(window)
-    assert label == 'fall' and 0 <= probability <= 1 and first
-    assert detector.predict(window)[2] is False
-    now[0] = 21
-    assert detector.predict(window)[2] is True
+    label, probability = detector.predict(window)
+    features = extract_wire_features(window).reshape(1, -1)
+    assert label == ('fall' if probability >= detector.threshold else 'adl')
+    assert probability == pytest.approx(detector.model.predict_proba(features)[0][list(detector.model.classes_).index('fall')])
+
+
+def test_fall_threshold_and_cooldown():
+    now = [0]
+    detector = FallDetector(threshold=.7, cooldown=20, clock=lambda: now[0])
+
+    class Model:
+        classes_ = np.array(['adl', 'fall'])
+
+        def __init__(self, probability):
+            self.probability = probability
+
+        def predict_proba(self, features):
+            return np.array([[1 - self.probability, self.probability]])
+
+    window = np.tile([0, 0, 1, 0, 0, 0], (WINDOW_SIZE, 1))
+    detector.model = Model(.6)
+    assert detector.predict(window)[0] == 'adl'
+    detector.model = Model(.8)
+    assert detector.predict(window)[0] == 'fall'
+    assert detector.should_trigger()
+    now[0] = 10
+    assert not detector.should_trigger()
+    now[0] = 20
+    assert detector.should_trigger()
 
 
 def test_incident_cancel_expire_and_duplicate():
@@ -74,3 +97,7 @@ def test_incident_cancel_expire_and_duplicate():
     assert incident.state == 'CAREGIVER_PENDING'
     assert 'CAREGIVER ALERT REQUIRED' in output
     assert not incident.candidate()
+    assert incident.close_caregiver()
+    assert incident.state == 'MONITORING'
+    assert incident.candidate(kind='fall')
+    assert output.count('FALL DETECTED') == 3

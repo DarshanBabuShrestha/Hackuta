@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Odyssey Guardian · Caregiver</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #eef4f8; background: #101c28; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px; }
+    main { max-width: 640px; margin: 0 auto; }
+    h1 { margin: 0; font-size: 1.7rem; }
+    p { color: #b9ceda; line-height: 1.45; }
+    .card { margin-top: 20px; padding: 22px; background: #1a2b39; border: 1px solid #304757; border-radius: 14px; }
+    .alert { border-color: #eb775e; box-shadow: 0 0 0 2px #eb775e44; }
+    .status { font-size: 1.4rem; font-weight: 700; }
+    .muted { color: #b9ceda; }
+    input { width: 100%; padding: 12px; margin: 8px 0 12px; font: inherit; border: 1px solid #5d7889; border-radius: 8px; }
+    button { padding: 12px 17px; border: 0; border-radius: 9px; background: #80dec0; color: #10291f; font: inherit; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    #incident { display: none; }
+    #connect-state { margin-top: 14px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Caregiver alerts</h1>
+  <p>Keep this page open to receive alerts. Allow notifications and sound on this device when prompted. An acknowledgment means you received the alert; arrange assistance directly.</p>
+  <section class="card" id="login">
+    <label for="key">Caregiver access key</label>
+    <input id="key" type="password" autocomplete="off">
+    <button id="connect">Connect</button>
+    <p id="connect-state">Enter the key shown in the backend terminal.</p>
+  </section>
+  <section class="card" id="incident" role="alert" aria-live="assertive">
+    <div class="status" id="title">Alert</div>
+    <p id="time"></p>
+    <p id="detail"></p>
+    <p id="countdown"></p>
+    <button id="acknowledge" disabled>Acknowledge alert</button>
+  </section>
+  <section class="card"><div class="status" id="idle">No active alert</div><p>This page updates from the wearer's sensor session.</p></section>
+</main>
+<script>
+  const byId = id => document.getElementById(id);
+  let socket, alert, timer, notifiedId;
+  function tone() {
+    try {
+      const audio = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      oscillator.frequency.value = 880;
+      gain.gain.value = 0.12;
+      oscillator.connect(gain).connect(audio.destination);
+      oscillator.start();
+      oscillator.stop(audio.currentTime + 0.35);
+      oscillator.onended = () => audio.close();
+    } catch (_) { /* Browser may block sound. The visual alert remains visible. */ }
+  }
+  function render(data) {
+    alert = data.caregiver_alert;
+    byId('incident').style.display = alert ? 'block' : 'none';
+    byId('idle').textContent = alert ? 'Latest incident' : 'No active alert';
+    if (!alert) return;
+    const kind = alert.kind === 'fall_and_seizure_like_motion' ? 'Possible fall and seizure-like movement'
+      : alert.kind === 'seizure_like_motion' ? 'Possible seizure-like movement' : 'Possible fall';
+    byId('title').textContent = `${kind} · ${alert.status.replaceAll('_', ' ')}`;
+    byId('time').textContent = `Detected ${new Date(alert.created_at).toLocaleString()}`;
+    byId('detail').textContent = alert.detail;
+    byId('acknowledge').disabled = alert.status !== 'WAITING';
+    byId('incident').classList.toggle('alert', alert.status === 'WAITING');
+    if (alert.status === 'WAITING' && notifiedId !== alert.id) {
+      notifiedId = alert.id;
+      tone();
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Odyssey Guardian: immediate assistance requested', {body: kind, tag: alert.id});
+      }
+    }
+    countdown();
+  }
+  function countdown() {
+    if (!alert || alert.status !== 'WAITING') {
+      byId('countdown').textContent = '';
+      return;
+    }
+    const seconds = Math.max(0, Math.ceil((new Date(alert.response_deadline) - Date.now()) / 1000));
+    byId('countdown').textContent = `Acknowledge within ${seconds} seconds to stop the phone call.`;
+  }
+  function connect() {
+    if (socket) socket.close();
+    const key = byId('key').value.trim();
+    if (!key) return;
+    const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    socket = new WebSocket(`${scheme}//${location.host}/caregiver/ws?key=${encodeURIComponent(key)}`);
+    socket.onopen = () => {
+      byId('connect-state').textContent = 'Connected. Keep this page open.';
+      byId('login').style.display = 'none';
+      if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+      clearInterval(timer);
+      timer = setInterval(countdown, 250);
+    };
+    socket.onmessage = event => render(JSON.parse(event.data));
+    socket.onclose = event => {
+      clearInterval(timer);
+      byId('login').style.display = 'block';
+      byId('connect-state').textContent = event.code === 1008 ? 'Invalid caregiver key.' : 'Disconnected. Reconnect to receive new alerts.';
+      byId('acknowledge').disabled = true;
+    };
+  }
+  byId('connect').onclick = connect;
+  byId('key').onkeydown = event => { if (event.key === 'Enter') connect(); };
+  byId('acknowledge').onclick = () => {
+    if (socket?.readyState === WebSocket.OPEN && alert?.status === 'WAITING') {
+      socket.send(JSON.stringify({command: 'acknowledge', alert_id: alert.id}));
+      byId('acknowledge').disabled = true;
+    }
+  };
+</script>
+</body>
+</html>

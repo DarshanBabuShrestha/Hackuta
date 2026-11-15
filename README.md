@@ -1,6 +1,6 @@
 # Odyssey Guardian experimental fall detection MVP
 
-This prototype streams six-axis motion from an original Arduino Nano 33 BLE Sense to a Windows laptop. Python classifies each 32-reading window for falls and separately reports an experimental simulated-seizure-like movement score after collecting a 206-sample acceleration window. Possible falls and seizure-like motion start a 15-second confirmation timer. It prints a caregiver alert requirement only; it does not contact anyone.
+This prototype streams six-axis motion from an original Arduino Nano 33 BLE Sense to a Windows laptop. Python classifies each 32-reading window for falls and separately reports an experimental simulated-seizure-like movement score after collecting a 206-sample acceleration window. Possible falls and seizure-like motion start a 15-second confirmation timer. An unconfirmed incident appears in the caregiver page; if the caregiver does not acknowledge it within 10 seconds, a configured Twilio account requests a voice call.
 
 ## What is in this workspace
 
@@ -31,9 +31,9 @@ If the backend opens COM9 but receives no samples, stop the backend, upload the 
 python -m backend.main --port COM9
 ```
 
-Use your actual port. A live serial run starts the local dashboard and prepares voice enrollment automatically. Open `http://127.0.0.1:8000` and click **Record my voice** when the voice model is ready. Optional flags: `--baud 115200`, `--threshold 0.7`, `--cooldown 20`, `--no-web` for terminal-only mode. Type `c` then Enter while the timer runs to cancel. Python continuously reads serial on a worker thread, so the timer continues during sensor collection or disconnection. Exit with Ctrl+C.
+Use your actual port. A live serial run starts the local dashboard and prepares voice enrollment automatically. Open `http://127.0.0.1:8000` and click **Record my voice** when the voice model is ready. Optional flags: `--baud 115200`, `--no-web` for terminal-only mode. Type `c` then Enter while the timer runs to cancel. Python continuously reads serial on a worker thread, so the timer continues during sensor collection or disconnection. Exit with Ctrl+C.
 
-The live dashboard at `http://127.0.0.1:8000` shows motion and detector updates over a WebSocket, plus the incident state and recent events. The **I'm okay** and **Need help** buttons work during confirmation. Use `--web-port 8001` to change the local port. The dashboard is served only on this computer; it does not contact a caregiver. Add `--web` explicitly for a simulation run.
+The live dashboard at `http://127.0.0.1:8000` shows motion and detector updates over a WebSocket, plus the incident state and recent events. The **I'm okay** and **Need help** buttons work during confirmation. Use `--web-port 8001` to change the port. The wearer dashboard is available only on this computer. Add `--web` explicitly for a simulation run.
 The default `--mode all` enables fall, tremor-like, and seizure-like motion. `--mode fall` turns the other two off. The seizure score first appears after about 13 seconds of continuous samples; a normal-activity score is still a valid result.
 
 ```powershell
@@ -41,9 +41,27 @@ python -m backend.main --port COM9 --web
 python -m backend.main --simulate ml/full_dataset/Dataset/fall/user1/user1_fall2.csv --web
 ```
 
+## Caregiver alerts and phone escalation
+
+Start the backend with `--web-host 0.0.0.0` to let a caregiver's phone on the same Wi-Fi network open `http://<laptop-LAN-IP>:8000/caregiver`. Find the laptop's LAN IP with `ipconfig` on Windows. The backend prints a caregiver access key; enter it on the phone and keep the page open. Set `ODYSSEY_CAREGIVER_KEY` before starting if you want a stable key. The caregiver page shows the incident type and time, plays a short sound where the browser permits it, and offers **Acknowledge alert**. Browser notifications require a secure context on most phones, so the visual alert is the dependable part of this local HTTP demo. The wearer dashboard shows whether a caregiver page is connected.
+
+For phone escalation, set these environment variables before starting the backend. Use E.164 phone numbers, including `+` and country code:
+
+```powershell
+$env:TWILIO_ACCOUNT_SID = "AC..."
+$env:TWILIO_AUTH_TOKEN = "..."
+$env:TWILIO_FROM_NUMBER = "+15551234567"
+$env:ODYSSEY_CAREGIVER_PHONE = "+15557654321"
+python -m backend.main --port COM9 --web-host 0.0.0.0
+```
+
+For a simulation with `--web`, the replay waits until you click **Start replay** on the wearer dashboard. Wait for **Ready to enroll**, click **Record my voice**, say “I'm okay”, and then start the replay. You can start the replay without voice enrollment if you want to use the manual buttons. This avoids a replayed fall blocking voice enrollment before the model is ready.
+
+After wearer confirmation expires or **Need help** is pressed, the caregiver page receives a new alert. An acknowledgment received before 10 seconds stops escalation. Otherwise the backend requests one outbound Twilio voice call. After acknowledgment or a call result, the incident returns to monitoring so a later fall can open a new confirmation and caregiver alert. The UI distinguishes a call request accepted by Twilio from a call actually answered; this prototype does not track answer status. If credentials are missing or Twilio rejects the request, the UI displays the failure. The caregiver page must stay open and connected for app alerts; this prototype does not include background mobile push. Keep this demo on a trusted local network. For internet access, put it behind HTTPS and add production authentication and durable incident storage before use. [Twilio's Call API](https://www.twilio.com/docs/voice/api/call-resource) documents the outbound request and call charges.
+
 ## Safe controlled demo
 
-Secure the board and cable, keep the laptop stable, and move the board by hand over a soft surface. Try ordinary movements first, then a controlled quick change of orientation and a gentle tap on a cushion. Do not ask a person to fall. The model may not trigger from a staged gesture; `--threshold` can be lowered for a software demo, but that does not improve real-world accuracy.
+Secure the board and cable, keep the laptop stable, and move the board by hand over a soft surface. Try ordinary movements first, then a controlled quick change of orientation and a gentle tap on a cushion. Do not ask a person to fall. The model may not trigger from a staged gesture; collect and inspect the model scores to understand missed detections.
 
 ## Simulation and tests
 
@@ -77,8 +95,8 @@ This is an experimental hackathon feature, not secure identity verification or a
 
 ## Experimental seizure-like movement score
 
-The backend loads `ml/seizure/seizure_models/epilepsy_rf.joblib`, buffers the acceleration axes from the live 50 Hz stream, resamples to the artifact's 16 Hz cadence, and calls the exact `features()` function in `ml/seizure/train_epilepsy_models.py`. It reports a probability and class after the 206-sample (about 12.9-second) buffer fills. `--seizure-threshold` changes the displayed class cutoff (default `0.5`). This score is experimental only: model training used staged movements, and Arduino units, orientation, placement, and preprocessing have not been calibrated to the dataset. It must not be treated as seizure detection or used for medical decisions.
-When the score first reaches the threshold, the backend starts the same confirmation flow as a possible fall. Recent events shows the detection and confirmation steps. Another seizure-like incident can start after the score drops below and later reaches the threshold again.
+The backend loads `ml/seizure/seizure_models/epilepsy_rf.joblib`, buffers the acceleration axes from the live 50 Hz stream, selects samples at the artifact's nominal 16 Hz cadence, and calls the exact `features()` function in `ml/seizure/train_epilepsy_models.py`. A concurrent rolling five-second FFT checks rhythmic power, while each one-second portion must have measurable acceleration variability. A possible seizure-like movement incident requires that motion check, a filled 206-sample ML window (about 12.9 seconds), and a seizure-class probability above the configured threshold. There is no additional five-second wait after the ML window fills. The dashboard and console show motion status, rhythmic duration, probability, and the suppression reason. The fall detector uses a configurable 0.7 probability threshold and 10-second trigger cooldown (`--threshold` and `--cooldown`). The seizure thresholds are experimental defaults, not calibrated to this Arduino: `--seizure-motion-rms-g 0.12`, `--seizure-peak-power-share 0.08`, `--seizure-band-power-share 0.50`, `--seizure-low-hz 3`, `--seizure-high-hz 8`, `--seizure-rhythmic-seconds 5`, and `--seizure-threshold 0.35`. Measure stationary noise and representative wearer movement before tuning them. Model training used staged movements, and Arduino units, orientation, placement, and preprocessing have not been fully calibrated to the dataset. This output is possible seizure-like movement, not a confirmed epileptic seizure or a medical diagnosis.
+When a model first changes to its positive class, the backend starts the same confirmation flow. If both models first predict positive in the same window, the incident identifies both. Recent events shows the detection and confirmation steps. Another incident can start after the relevant model predicts negative and later positive again.
 
 ## Run detector modes
 
