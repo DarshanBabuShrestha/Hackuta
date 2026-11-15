@@ -22,7 +22,8 @@ class VoiceVerifier:
         self.input_device_name = sd.query_devices(kind='input')['name']
 
     def record_voice(self, prompt, wait_for_enter=True, on_started=None, on_recorded=None):
-        print(f'\n{prompt}')
+        if prompt:
+            print(f'\n{prompt}')
         if wait_for_enter:
             input('Press Enter to begin recording...')
         print('Recording...')
@@ -73,7 +74,7 @@ class VoiceVerifier:
 
     def confirm_fall(self, on_started=None, on_recorded=None):
         response = self.record_voice(
-            "System: Say 'I'm okay' within 4 seconds.",
+            None,
             wait_for_enter=False,
             on_started=on_started,
             on_recorded=on_recorded,

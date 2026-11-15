@@ -120,6 +120,11 @@ def test_seizure_incident_can_be_cancelled():
 
 
 def test_seizure_detector_starts_confirmation(monkeypatch, capsys):
+    spoken = []
+    def capture(message):
+        spoken.append(message)
+        return True
+    monkeypatch.setattr(backend_main, 'speak', capture)
     class Detector:
         def __init__(self, **kwargs):
             pass
@@ -139,11 +144,16 @@ def test_seizure_detector_starts_confirmation(monkeypatch, capsys):
     ])
     output = capsys.readouterr().out
     assert 'POSSIBLE SEIZURE-LIKE MOVEMENT DETECTED' in output
-    assert 'Are you okay?' in output
+    assert output.count('Are you okay? Please confirm') == 1
+    assert spoken[0] == 'Are you okay? Please confirm'
+    assert backend_main.re.sub(r'\s+', ' ', ' '.join(spoken[1:])) == backend_main.re.sub(
+        r'\s+', ' ', backend_main.BYSTANDER_ASSISTANCE_MESSAGE)
     assert 'CAREGIVER ALERT REQUIRED' in output
 
 
 def test_simultaneous_model_predictions_report_both(monkeypatch, capsys):
+    monkeypatch.setattr(backend_main, 'speak', lambda message: None)
+
     class FallModel:
         def __init__(self, **kwargs):
             pass

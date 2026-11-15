@@ -64,7 +64,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
   const byId = id => document.getElementById(id);
-  let socket, alert, timer, notifiedId;
+  const CAREGIVER_VOICE_ALERT = 'Assistance is required. Please check on Odysseus';
+  let socket, alert, timer, notifiedId, activeVoiceAlert;
   let map, wearerMarker, accuracyCircle, tileLayer;
   function initializeMap() {
     if (!window.L) { byId('map-error').hidden = false; return; }
@@ -88,6 +89,42 @@
       oscillator.onended = () => audio.close();
     } catch (_) { /* Browser may block sound. The visual alert remains visible. */ }
   }
+  function cinematicVoice() {
+    const voices = window.speechSynthesis.getVoices().filter(voice => voice.lang.toLowerCase().startsWith('en'));
+    const score = voice => {
+      const name = voice.name.toLowerCase();
+      return (voice.localService ? 2 : 0)
+        + (/natural|premium|enhanced/.test(name) ? 4 : 0)
+        + (/david|mark|daniel|guy|ryan|george|james|male/.test(name) ? 3 : 0);
+    };
+    return voices.sort((left, right) => score(right) - score(left))[0] || null;
+  }
+  function voiceAlert() {
+    try {
+      if (!('speechSynthesis' in window) || !window.SpeechSynthesisUtterance) return;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
+      activeVoiceAlert = new SpeechSynthesisUtterance(CAREGIVER_VOICE_ALERT);
+      const voice = cinematicVoice();
+      if (voice) activeVoiceAlert.voice = voice;
+      activeVoiceAlert.lang = voice?.lang || 'en-US';
+      activeVoiceAlert.rate = 0.82;
+      activeVoiceAlert.pitch = 0.7;
+      activeVoiceAlert.volume = 1;
+      activeVoiceAlert.onend = activeVoiceAlert.onerror = () => { activeVoiceAlert = null; };
+      window.speechSynthesis.speak(activeVoiceAlert);
+      // Chrome can leave speech paused after a tab has been in the background.
+      setTimeout(() => window.speechSynthesis.resume(), 100);
+    } catch (_) { /* Browser may block speech. The tone and visual alert remain available. */ }
+  }
+  function unlockCaregiverVoice() {
+    try {
+      if (!('speechSynthesis' in window) || !window.SpeechSynthesisUtterance) return;
+      const unlock = new SpeechSynthesisUtterance(' ');
+      unlock.volume = 0;
+      window.speechSynthesis.speak(unlock);
+    } catch (_) { /* The caregiver still receives the tone and visual alert. */ }
+  }
   function render(data) {
     alert = data.caregiver_alert;
     renderLocation(data.location, data.location_status);
@@ -104,6 +141,8 @@
     if (alert.status === 'WAITING' && notifiedId !== alert.id) {
       notifiedId = alert.id;
       tone();
+      // Let the short tone finish so it does not mask the first spoken words.
+      setTimeout(voiceAlert, 400);
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('Odyssey Guardian: immediate assistance requested', {body: kind, tag: alert.id});
       }
@@ -143,6 +182,9 @@
     if (socket) socket.close();
     const key = byId('key').value.trim();
     if (!key) return;
+    // This runs inside the Connect click, satisfying mobile browser audio rules
+    // before a later WebSocket alert asks the browser to speak.
+    unlockCaregiverVoice();
     const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
     socket = new WebSocket(`${scheme}//${location.host}/caregiver/ws?key=${encodeURIComponent(key)}`);
     socket.onopen = () => {

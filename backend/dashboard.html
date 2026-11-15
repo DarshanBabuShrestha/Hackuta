@@ -207,7 +207,7 @@
     <div class="incident-block"><span class="eyebrow">Watch status</span><div id="incident">Waiting for backend</div><p id="incident-help">A confirmation prompt will appear for a possible incident.</p></div>
     <div class="monitor-meta"><span id="connection" class="pill">Connecting</span><span id="source">Waiting for backend</span><span id="sensor-status">Waiting for sensor</span><span id="updated">No data yet</span></div>
     <div class="monitor-actions">
-      <button id="cancel" disabled>I'm okay</button><button id="help" disabled>Need help</button>
+      <button id="cancel" disabled>I'm okay</button><button id="help" disabled>Need help</button><button id="pause-broadcast" disabled>Pause broadcast</button>
       <details id="voice-menu"><summary>Voice &amp; Location</summary><div class="menu-panel">
         <div class="eyebrow">Voice confirmation</div><div id="voice" class="value">Waiting for backend</div><p id="voice-help">Uses this computer's microphone when a possible fall starts confirmation.</p><button id="enroll" disabled>Record my voice</button>
         <hr style="border:0;border-top:1px solid #8c7147;margin:12px 0"><div class="eyebrow">Caregiver connection</div><p id="caregiver-status">Caregiver page: waiting for backend</p><p id="location-share-status">Location sharing is off.</p><button id="share-location">Share my location with caregiver</button>
@@ -495,7 +495,7 @@
       : data.incident_type === 'seizure_like_motion' ? 'Possible seizure-like movement' : 'Fall';
     byId('incident').textContent = data.incident === 'MONITORING' ? 'Monitoring' : `${incidentType} · ${data.incident.replaceAll('_', ' ')}`;
     byId('incident-help').textContent = ['CONFIRMING', 'VERIFYING'].includes(data.incident)
-      ? `Possible ${incidentType.toLowerCase()} detected. Are you okay? Use a button or respond by voice if enrolled.`
+      ? `Possible ${incidentType.toLowerCase()} detected. Are you okay? Please confirm.`
       : data.incident === 'CAREGIVER_PENDING' ? `Caregiver alert: ${data.caregiver_alert?.detail || 'opening'}.`
       : 'A confirmation prompt will appear for a possible fall or seizure-like motion.';
     byId('caregiver-status').textContent = data.caregiver_connected ? 'Caregiver page connected' : 'Caregiver page disconnected; app alert may not be seen';
@@ -540,6 +540,8 @@
     byId('motion').textContent = data.motion ? `X ${data.motion.x_g_rms.toFixed(3)}  ·  Y ${data.motion.y_g_rms.toFixed(3)}  ·  Z ${data.motion.z_g_rms.toFixed(3)}` : 'Waiting for data';
     byId('windows').textContent = `${data.windows} windows received`;
     byId('cancel').disabled = byId('help').disabled = !['CONFIRMING', 'VERIFYING'].includes(data.incident);
+    byId('pause-broadcast').disabled = !data.broadcast_active;
+    byId('pause-broadcast').textContent = data.broadcast_paused ? 'Resume broadcast' : 'Pause broadcast';
     const events = byId('events');
     events.replaceChildren();
     if (!data.events.length) {
@@ -573,6 +575,12 @@
   for (const [id, command] of [['cancel', 'cancel'], ['help', 'help']]) {
     byId(id).onclick = () => { if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({command})); };
   }
+  byId('pause-broadcast').onclick = () => {
+    if (socket.readyState === WebSocket.OPEN) {
+      byId('pause-broadcast').disabled = true;
+      socket.send(JSON.stringify({command: 'pause_broadcast'}));
+    }
+  };
   byId('enroll').onclick = () => {
     if (socket.readyState === WebSocket.OPEN) {
       byId('enroll').disabled = true;

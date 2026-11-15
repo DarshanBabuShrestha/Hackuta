@@ -3,12 +3,25 @@ import json
 import queue
 import time
 import urllib.parse
+from pathlib import Path
 
 from fastapi import WebSocketDisconnect
 
 from backend.caregiver_alerts import CaregiverAlerts, call_caregiver
 from backend.dashboard import Dashboard
 from backend import main as backend_main
+
+
+def test_caregiver_alert_plays_tone_and_voice_once_per_incident():
+    html = (Path(__file__).parents[1] / 'backend' / 'caregiver.html').read_text(encoding='utf-8')
+    assert "CAREGIVER_VOICE_ALERT = 'Assistance is required. Please check on Odysseus'" in html
+    assert 'activeVoiceAlert = new SpeechSynthesisUtterance(CAREGIVER_VOICE_ALERT)' in html
+    assert 'const voice = cinematicVoice();' in html
+    assert 'activeVoiceAlert.rate = 0.82;' in html
+    assert 'activeVoiceAlert.pitch = 0.7;' in html
+    assert 'unlockCaregiverVoice();' in html
+    new_alert_block = html.split("if (alert.status === 'WAITING' && notifiedId !== alert.id)", 1)[1]
+    assert new_alert_block.index('tone();') < new_alert_block.index('setTimeout(voiceAlert, 400);')
 
 
 def test_acknowledgment_before_deadline_prevents_call():
@@ -134,6 +147,8 @@ def test_caregiver_websocket_requires_key_and_only_accepts_acknowledgment():
 
 
 def test_backend_detects_second_fall_after_first_alert_finishes(monkeypatch, capsys):
+    monkeypatch.setattr(backend_main, 'speak', lambda message: None)
+
     class Detector:
         def __init__(self, **kwargs):
             pass

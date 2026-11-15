@@ -3,7 +3,7 @@ import pytest
 
 from backend.features import FEATURE_NAMES, G, WINDOW_SIZE, extract_features, extract_wire_features, wire_to_si
 from backend.fall_detector import FallDetector
-from backend.incident_manager import IncidentManager
+from backend.incident_manager import CONFIRMATION_PROMPT, IncidentManager
 from backend.serial_bridge import SerialBridge, parse_message
 
 
@@ -86,6 +86,7 @@ def test_incident_cancel_expire_and_duplicate():
     output = []
     incident = IncidentManager(clock=lambda: now[0], emit=output.append)
     assert incident.candidate()
+    assert output.count(CONFIRMATION_PROMPT) == 1
     assert not incident.candidate()
     assert incident.state == 'CONFIRMING'
     assert incident.cancel()

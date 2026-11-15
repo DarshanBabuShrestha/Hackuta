@@ -1,11 +1,95 @@
 """Voice enrollment is started from the dashboard without terminal input."""
 import asyncio
 import queue
+import re
 
 from fastapi import WebSocketDisconnect
 
 from backend.dashboard import Dashboard
-from backend.main import enroll_voice
+from backend.main import (BYSTANDER_ASSISTANCE_MESSAGE, VOICE_REJECTED_MESSAGE,
+                          broadcast_first_aid_message, enroll_voice,
+                          reject_voice_confirmation, toggle_first_aid_broadcast)
+
+
+def test_bystander_first_aid_message_is_spoken(monkeypatch):
+    spoken = []
+    updates = []
+    def capture(message):
+        spoken.append(message)
+        return True
+    monkeypatch.setattr('backend.main.speak', capture)
+
+    class View:
+        def publish(self, **changes):
+            updates.append(changes)
+
+    broadcast_first_aid_message(View())
+
+    assert re.sub(r'\s+', ' ', ' '.join(spoken)) == re.sub(r'\s+', ' ', BYSTANDER_ASSISTANCE_MESSAGE)
+    assert updates == [
+        {'broadcast_active': True, 'broadcast_paused': False},
+        {'broadcast_active': False, 'broadcast_paused': False},
+    ]
+    assert BYSTANDER_ASSISTANCE_MESSAGE.startswith('Hello! I may be unconscious')
+    assert 'Do not hold me down or put anything in my mouth.' in BYSTANDER_ASSISTANCE_MESSAGE
+    assert 'Call 911 immediately' in BYSTANDER_ASSISTANCE_MESSAGE
+    assert BYSTANDER_ASSISTANCE_MESSAGE.endswith('until I recover or help arrives.')
+
+
+def test_broadcast_button_toggles_pause_and_resume(monkeypatch):
+    updates, events, stopped = [], [], []
+
+    class View:
+        def publish(self, **changes):
+            updates.append(changes)
+        def event(self, message):
+            events.append(message)
+
+    monkeypatch.setattr('backend.main.stop_speaking', lambda: stopped.append(True))
+    from backend import main as backend_main
+    backend_main._broadcast_active.set()
+    backend_main._broadcast_can_play.set()
+    try:
+        assert toggle_first_aid_broadcast(View())
+        assert not backend_main._broadcast_can_play.is_set()
+        assert toggle_first_aid_broadcast(View())
+        assert backend_main._broadcast_can_play.is_set()
+    finally:
+        backend_main._broadcast_active.clear()
+        backend_main._broadcast_can_play.set()
+
+    assert stopped == [True]
+    assert updates == [
+        {'broadcast_active': True, 'broadcast_paused': True},
+        {'broadcast_active': True, 'broadcast_paused': False},
+    ]
+    assert events == ['Emergency broadcast paused by wearer',
+                      'Emergency broadcast resumed by wearer']
+
+
+def test_unrecognized_voice_alerts_caregiver_once(capsys, monkeypatch):
+    updates = []
+    spoken = []
+    monkeypatch.setattr('backend.main.speak', spoken.append)
+
+    class Incident:
+        def __init__(self):
+            self.alerts = 0
+
+        def caregiver_pending(self):
+            self.alerts += 1
+
+    class View:
+        def publish(self, **changes):
+            updates.append(changes)
+
+    incident = Incident()
+    reject_voice_confirmation(incident, View())
+
+    assert capsys.readouterr().out.strip() == VOICE_REJECTED_MESSAGE
+    assert spoken == [VOICE_REJECTED_MESSAGE]
+    assert incident.alerts == 1
+    assert updates == [{'voice_status': VOICE_REJECTED_MESSAGE}]
 
 
 def test_enrollment_uses_dashboard_command_without_terminal_prompt():
@@ -63,6 +147,9 @@ def test_websocket_accepts_enrollment_command():
         await socket.received.put({'command': 'start_simulation'})
         await asyncio.sleep(.05)
         assert commands.get_nowait() == 'start_simulation'
+        await socket.received.put({'command': 'pause_broadcast'})
+        await asyncio.sleep(.05)
+        assert commands.get_nowait() == 'pause_broadcast'
         await socket.received.put(None)
         await asyncio.wait_for(task, 2)
 

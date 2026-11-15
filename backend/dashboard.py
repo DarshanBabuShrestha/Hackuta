@@ -43,6 +43,8 @@ class Dashboard:
             'events': [],
             'caregiver_alert': None,
             'caregiver_connected': False,
+            'broadcast_active': False,
+            'broadcast_paused': False,
             'location': None,
             'location_status': 'Location unavailable',
             'simulation_waiting': simulation_waiting,
@@ -198,7 +200,8 @@ class Dashboard:
                 if caregiver:
                     if command == 'acknowledge' and isinstance(message.get('alert_id'), str):
                         self.commands.put({'command': command, 'alert_id': message['alert_id']})
-                elif command in ('cancel', 'help', 'enroll_voice', 'start_simulation'):
+                elif command in ('cancel', 'help', 'enroll_voice', 'start_simulation',
+                                 'pause_broadcast'):
                     self.commands.put(command)
 
         receiver = asyncio.create_task(receive_commands())

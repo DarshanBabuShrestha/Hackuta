@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import queue
+import re
 import secrets
 import socket
 import sys
@@ -17,13 +18,85 @@ from backend.fall_detector import FallDetector
 from backend.caregiver_alerts import CaregiverAlerts
 from backend.episode_tracker import EpisodeTracker
 from backend.features import G, WINDOW_SIZE
-from backend.incident_manager import IncidentManager
+from backend.incident_manager import CONFIRMATION_PROMPT, IncidentManager
 from backend.seizure_detector import (DEFAULT_THRESHOLD, HIGH_HZ, LOW_HZ,
                                       MIN_BAND_POWER_SHARE, MIN_MOTION_RMS_G, MIN_PEAK_POWER_SHARE,
                                       RHYTHMIC_SECONDS, WINDOW_SIZE as SEIZURE_WINDOW_SIZE,
                                       SeizureMotionDetector)
 from backend.serial_bridge import SerialBridge, Sample, parse_message
+from backend.speech_output import speak, stop_speaking
 from backend.tremor_detector import TremorMotionDetector
+
+
+VOICE_REJECTED_MESSAGE = 'Voice not recognized. Alerting the caregiver.'
+BYSTANDER_ASSISTANCE_MESSAGE = """Hello! I may be unconscious or experiencing a seizure, and I may not be able to ask for help.
+
+If you see me shaking or having a seizure:
+
+Please stay with me and keep me safe.
+
+Move any dangerous objects away from me.
+
+Cushion my head and time the seizure.
+
+Do not hold me down or put anything in my mouth.
+
+When it is safe, gently turn me onto my side.
+
+Call 911 immediately if I am having trouble breathing, I am injured, the seizure lasts 5 minutes or longer, or another seizure starts before I recover. If you are unsure whether this is my first seizure, call for emergency help.
+
+My caregiver has been notified.
+
+Please stay with me until I recover or help arrives."""
+_broadcast_can_play = threading.Event()
+_broadcast_can_play.set()
+_broadcast_active = threading.Event()
+
+
+def broadcast_first_aid_message(dashboard=None):
+    _broadcast_can_play.set()
+    _broadcast_active.set()
+    if dashboard:
+        dashboard.publish(broadcast_active=True, broadcast_paused=False)
+    try:
+        sentences = re.split(r'(?<=[.!?])\s+', BYSTANDER_ASSISTANCE_MESSAGE.strip())
+        for sentence in sentences:
+            while True:
+                _broadcast_can_play.wait()
+                if speak(sentence):
+                    break
+                if _broadcast_can_play.is_set():
+                    return
+    finally:
+        _broadcast_active.clear()
+        _broadcast_can_play.set()
+        if dashboard:
+            dashboard.publish(broadcast_active=False, broadcast_paused=False)
+
+
+def toggle_first_aid_broadcast(dashboard=None):
+    if not _broadcast_active.is_set():
+        return False
+    if _broadcast_can_play.is_set():
+        _broadcast_can_play.clear()
+        stop_speaking()
+        paused = True
+    else:
+        _broadcast_can_play.set()
+        paused = False
+    if dashboard:
+        dashboard.publish(broadcast_active=True, broadcast_paused=paused)
+        dashboard.event('Emergency broadcast paused by wearer' if paused
+                        else 'Emergency broadcast resumed by wearer')
+    return True
+
+
+def reject_voice_confirmation(incident, dashboard=None):
+    print(VOICE_REJECTED_MESSAGE, flush=True)
+    speak(VOICE_REJECTED_MESSAGE)
+    incident.caregiver_pending()
+    if dashboard:
+        dashboard.publish(voice_status=VOICE_REJECTED_MESSAGE)
 
 
 def voice_confirmation(verifier, results, incident, dashboard=None):
@@ -205,7 +278,9 @@ def main(argv=None):
             if voice_enabled and voice_recording and message == 'CAREGIVER ALERT REQUIRED':
                 dashboard.publish(voice_status='Voice confirmation did not complete')
         if message == 'CAREGIVER ALERT REQUIRED':
-            alerts.start(incident.kind)
+            if alerts.start(incident.kind):
+                threading.Thread(target=broadcast_first_aid_message,
+                                 args=(dashboard,), daemon=True).start()
 
     incident = IncidentManager(duration=args.confirmation_seconds, emit=incident_message)
     if dashboard:
@@ -316,6 +391,8 @@ def main(argv=None):
                     simulation_start.set()
                     dashboard.publish(simulation_waiting=False)
                     dashboard.event('Sensor replay started')
+                elif command == 'pause_broadcast':
+                    toggle_first_aid_broadcast(dashboard)
             incident.tick()
             alerts.tick()
             if (incident.state == 'CAREGIVER_PENDING' and alerts.alert and
@@ -331,12 +408,10 @@ def main(argv=None):
                 if incident.state not in ('CONFIRMING', 'VERIFYING'):
                     continue
                 if isinstance(result, Exception):
-                    print(f'Voice confirmation failed: {result}', flush=True)
-                    incident.caregiver_pending()
-                    if dashboard:
-                        dashboard.publish(voice_status=f'Voice check failed: {result}')
+                    logging.error('Voice confirmation failed: %s', result)
+                    reject_voice_confirmation(incident, dashboard)
                 else:
-                    score, is_owner, said_okay, spoken_text, recognition_error = result
+                    score, is_owner, said_okay, spoken_text, _recognition_error = result
                     print(f'Voice response: {spoken_text!r}; similarity: {score:.3f}; '
                           f'microphone level: {voice.last_level:.4f}', flush=True)
                     if is_owner and said_okay and incident.cancel():
@@ -344,16 +419,7 @@ def main(argv=None):
                         if dashboard:
                             dashboard.publish(voice_status='Owner voice confirmed')
                     else:
-                        print('Voice confirmation not verified; alert remains active.', flush=True)
-                        incident.caregiver_pending()
-                        if dashboard:
-                            if recognition_error:
-                                reason = recognition_error
-                            elif not said_okay:
-                                reason = f'Heard {spoken_text!r}; say "I\'m okay"'
-                            else:
-                                reason = 'Voice did not match enrolled speaker'
-                            dashboard.publish(voice_status=reason)
+                        reject_voice_confirmation(incident, dashboard)
                 if dashboard:
                     dashboard.publish(incident=incident.state)
             try:
@@ -491,15 +557,19 @@ def main(argv=None):
             if candidate_kind and incident.state == 'MONITORING':
                 voice_active = bool(voice and voice.owner_voice is not None and not enrolling)
                 incident.duration = voice_duration if voice_active else args.confirmation_seconds
-                prompt = 'Starting voice confirmation.' if voice_active else 'Are you okay? Type c then Enter to cancel.'
-                if incident.candidate(prompt=prompt, defer_timer=voice_active,
-                                      kind=candidate_kind) and voice_active:
-                    if dashboard:
-                        dashboard.publish(voice_status='Starting voice confirmation',
-                                          voice_can_enroll=False)
-                    voice_recording = True
-                    threading.Thread(target=voice_confirmation,
-                                     args=(voice, voice_results, incident, dashboard), daemon=True).start()
+                if incident.candidate(defer_timer=True, kind=candidate_kind):
+                    # Finish the spoken question before opening the microphone or
+                    # starting the manual confirmation countdown.
+                    speak(CONFIRMATION_PROMPT)
+                    if voice_active:
+                        if dashboard:
+                            dashboard.publish(voice_status='Starting voice confirmation',
+                                              voice_can_enroll=False)
+                        voice_recording = True
+                        threading.Thread(target=voice_confirmation,
+                                         args=(voice, voice_results, incident, dashboard), daemon=True).start()
+                    else:
+                        incident.start_confirmation_window()
             if dashboard:
                 dashboard.publish(incident=incident.state, incident_type=incident.kind, **update)
     except KeyboardInterrupt:

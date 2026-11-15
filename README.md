@@ -85,7 +85,7 @@ The held-out participant test split for this window model reached 79.7% accuracy
 
 ## Voice confirmation integration
 
-With `--web`, the backend prepares voice confirmation automatically. Open the dashboard, click **Record my voice**, and say “I'm okay” into the computer microphone during the four-second recording. No terminal input is needed. When a possible fall or seizure-like movement occurs after enrollment, the backend records another four-second response and checks the enrolled voice and words. A matching response tentatively cancels the incident; otherwise the caregiver alert remains active. The dashboard shows the selected microphone and each step. `--voice-confirmation` is still accepted as an alias that opens the dashboard.
+With `--web`, the backend prepares voice confirmation automatically. Open the dashboard, click **Record my voice**, and say “I'm okay” into the computer microphone during the four-second recording. No terminal input is needed. When a possible fall or seizure-like movement occurs, the computer speaks “Are you okay? Please confirm” once. After enrollment, it then records a four-second response and checks the enrolled voice and words. A matching response tentatively cancels the incident. If the voice is not recognized, the computer speaks “Voice not recognized. Alerting the caregiver.” and opens the caregiver alert. The dashboard shows the selected microphone and each step. `--voice-confirmation` is still accepted as an alias that opens the dashboard.
 
 ```powershell
 python -m backend.main --port COM9 --web

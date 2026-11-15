@@ -2,6 +2,7 @@
 import time
 
 CAPTURE_COMPLETION_GRACE = 0.5
+CONFIRMATION_PROMPT = 'Are you okay? Please confirm'
 
 
 class IncidentManager:
@@ -21,7 +22,7 @@ class IncidentManager:
         self.emit(f'{label} DETECTED')
         self.state = 'CONFIRMING'
         self.deadline = None if defer_timer else self.clock() + self.duration
-        self.emit(prompt or 'Are you okay? Type c then Enter to cancel.')
+        self.emit(prompt or CONFIRMATION_PROMPT)
         return True
 
     def start_response_window(self):
@@ -30,6 +31,13 @@ class IncidentManager:
         # Allow the audio callback to return control after its exact-length
         # capture before timing out the incident.
         self.deadline = self.clock() + self.duration + CAPTURE_COMPLETION_GRACE
+        return True
+
+    def start_confirmation_window(self):
+        """Start a manual-response timer after the spoken prompt finishes."""
+        if self.state != 'CONFIRMING':
+            return False
+        self.deadline = self.clock() + self.duration
         return True
 
     def response_captured(self):
