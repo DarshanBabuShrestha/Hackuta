@@ -12,6 +12,8 @@ dataset/
 
 # Generated files
 *.log
+backend/.episode_reports.json
+backend/.episode_reports.json.tmp
 
 # IDE / OS
 .vscode/

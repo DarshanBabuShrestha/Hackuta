@@ -56,6 +56,7 @@ class SeizureMotionDetector:
             raise ValueError('Model lacks simulated seizure-like motion class')
         self.samples = deque(maxlen=WINDOW_SIZE)
         self.motion_samples = deque(maxlen=self.motion_window_size)
+        self.motion_timestamps = deque(maxlen=self.motion_window_size)
         self.motion_rms_g = motion_rms_g
         self.peak_power_share = peak_power_share
         self.band_power_share = band_power_share
@@ -65,6 +66,7 @@ class SeizureMotionDetector:
         self.status = {'motion': 'collecting', 'rhythmic_seconds': 0.0,
                        'motion_rms_g': 0.0, 'peak_hz': 0.0,
                        'peak_power_share': 0.0, 'band_power_share': 0.0,
+                       'rhythmic_start_ms': None,
                        'reason': 'collecting motion samples',
                        'probability': None}
         self.last_index = -1
@@ -75,6 +77,7 @@ class SeizureMotionDetector:
         """Verify activity throughout the rolling window and its FFT rhythm."""
         if len(self.motion_samples) < self.motion_window_size:
             return
+        previously_rhythmic = self.status['motion'] == 'rhythmic'
         acceleration = np.asarray(self.motion_samples, dtype=float)
         dynamic = acceleration - acceleration.mean(axis=0)
         rms = float(np.sqrt(np.mean(np.sum(dynamic * dynamic, axis=1))))
@@ -106,6 +109,9 @@ class SeizureMotionDetector:
                            rhythmic_seconds=duration, motion_rms_g=rms,
                            peak_hz=peak_hz, peak_power_share=share,
                            band_power_share=band_share, reason=reason)
+        self.status['rhythmic_start_ms'] = (
+            self.status.get('rhythmic_start_ms') if previously_rhythmic
+            else self.motion_timestamps[0] if rhythmic else None)
 
     def push_window(self, wire_window, window_end_ms, hop=16):
         """Consume each new sample once; return latest probability when ready.
@@ -128,6 +134,7 @@ class SeizureMotionDetector:
         for i, row in enumerate(new):
             timestamp = first_ms + i * 20
             self.motion_samples.append(row[:3].copy())
+            self.motion_timestamps.append(timestamp)
             if self.next_sample_ms is None:
                 self.next_sample_ms = timestamp
             if timestamp + 1e-6 >= self.next_sample_ms:

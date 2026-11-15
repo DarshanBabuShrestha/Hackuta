@@ -39,6 +39,7 @@ class SerialBridge:
         self.buffer = deque(maxlen=window_size)
         self.count = 0
         self.last_timestamp = None
+        self.latest_samples = deque(maxlen=250)
 
     def push(self, sample):
         # millis() wraps after about 49 days; a reboot or gap clears the window.
@@ -50,6 +51,7 @@ class SerialBridge:
                 LOG.warning('Sensor timing gap; starting a new window')
         self.last_timestamp = sample.timestamp_ms
         self.buffer.append(sample.values)
+        self.latest_samples.append(sample)
         self.count += 1
         if len(self.buffer) == self.buffer.maxlen and (self.count - self.buffer.maxlen) % self.hop == 0:
             return list(self.buffer)
@@ -66,6 +68,7 @@ class SerialBridge:
                     self.buffer.clear()
                     self.count = 0
                     self.last_timestamp = None
+                    self.latest_samples.clear()
                     last_data = time.monotonic()
                     receiving = False
                     bad_format = False

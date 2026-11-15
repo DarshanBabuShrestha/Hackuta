@@ -25,6 +25,10 @@ class TremorMotionDetector:
         self.min_band_power_share = min_band_power_share
         self.samples = deque(maxlen=WINDOW_SIZE)
         self.seen_window = False
+        self.last_spectrum = []
+
+    def spectrum(self):
+        return self.last_spectrum
 
     def push_window(self, wire_window, hop=16):
         """Consume overlapping 32-row six-axis windows from SerialBridge."""
@@ -51,6 +55,10 @@ class TremorMotionDetector:
         band_rms = float(np.sqrt(band_power))
         power_share = band_power / (total_power + 1e-12)
         peak_frequency = float(frequencies[band][np.argmax(power[band])])
+        self.last_spectrum = [
+            {'hz': round(float(frequency), 2), 'power': round(float(value), 8)}
+            for frequency, value in zip(frequencies[band], power[band])
+        ]
         detected = (band_rms >= self.min_band_rms_g and
                     power_share >= self.min_band_power_share)
         label = 'tremor_like_motion' if detected else 'normal_activity'

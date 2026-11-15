@@ -15,11 +15,13 @@ import numpy as np
 
 from backend.fall_detector import FallDetector
 from backend.caregiver_alerts import CaregiverAlerts
+from backend.episode_tracker import EpisodeTracker
 from backend.features import G, WINDOW_SIZE
 from backend.incident_manager import IncidentManager
 from backend.seizure_detector import (DEFAULT_THRESHOLD, HIGH_HZ, LOW_HZ,
                                       MIN_BAND_POWER_SHARE, MIN_MOTION_RMS_G, MIN_PEAK_POWER_SHARE,
-                                      RHYTHMIC_SECONDS, SeizureMotionDetector)
+                                      RHYTHMIC_SECONDS, WINDOW_SIZE as SEIZURE_WINDOW_SIZE,
+                                      SeizureMotionDetector)
 from backend.serial_bridge import SerialBridge, Sample, parse_message
 from backend.tremor_detector import TremorMotionDetector
 
@@ -122,6 +124,14 @@ def main(argv=None):
     parser.add_argument('--seizure-high-hz', type=float, default=HIGH_HZ)
     parser.add_argument('--seizure-rhythmic-seconds', type=float, default=RHYTHMIC_SECONDS)
     parser.add_argument('--seizure-threshold', type=float, default=DEFAULT_THRESHOLD)
+    parser.add_argument('--episode-pre-event-seconds', type=float, default=5.0,
+                        help='Seconds of timestamped sensor data to retain before an episode onset')
+    parser.add_argument('--episode-recovery-seconds', type=float, default=5.0,
+                        help='Continuous normal rhythmic-motion recovery required to finish a report')
+    parser.add_argument('--episode-burst-min-seconds', type=float, default=0.2,
+                        help='Minimum above-average movement interval counted as a burst')
+    parser.add_argument('--episode-burst-hysteresis', type=float, default=0.1,
+                        help='Relative hysteresis below the average for closing an above-average burst')
     parser.add_argument('--mode', choices=('all', 'fall', 'tremor', 'seizure', 'epilepsy'), default='all',
                         help='Run all detectors or one detector for an isolated test')
     parser.add_argument('--web', action='store_true', help='Serve the local live dashboard')
@@ -159,6 +169,14 @@ def main(argv=None):
         low_hz=args.seizure_low_hz, high_hz=args.seizure_high_hz,
         rhythmic_seconds=args.seizure_rhythmic_seconds,
         threshold=args.seizure_threshold) if run_seizure else None)
+    episode_tracker = (EpisodeTracker(
+        pre_event_seconds=args.episode_pre_event_seconds,
+        trigger_lookback_seconds=max(args.seizure_rhythmic_seconds,
+                                     SEIZURE_WINDOW_SIZE / 16),
+        recovery_seconds=args.episode_recovery_seconds,
+        burst_min_seconds=args.episode_burst_min_seconds,
+        burst_hysteresis=args.episode_burst_hysteresis,
+        minimum_motion_rms_g=args.seizure_motion_rms_g) if run_seizure else None)
     commands = queue.Queue()
     dashboard = None
     caregiver_key = os.environ.get('ODYSSEY_CAREGIVER_KEY') or secrets.token_urlsafe(16)
@@ -168,7 +186,8 @@ def main(argv=None):
                               enabled={'fall': run_fall, 'tremor': run_tremor,
                                        'seizure': run_seizure},
                               voice_enabled=voice_enabled, caregiver_key=caregiver_key,
-                              simulation_waiting=bool(args.simulate))
+                              simulation_waiting=bool(args.simulate),
+                              episode_tracker=episode_tracker)
 
     def alert_message(message):
         print(message, flush=True)
@@ -201,9 +220,22 @@ def main(argv=None):
     voice_events = queue.Queue()
     voice_results = queue.Queue()
     threading.Thread(target=keyboard_reader, args=(commands,), daemon=True).start()
+    def sensor_status(status):
+        if episode_tracker:
+            lowered = status.lower()
+            if 'disconnect' in lowered or 'no serial data' in lowered or 'initialization failed' in lowered:
+                episode_tracker.mark_disconnected(status)
+            elif 'connected' in lowered or 'receiving imu' in lowered:
+                episode_tracker.mark_reconnected()
+        if dashboard:
+            changes = {'sensor_status': status}
+            if episode_tracker:
+                changes['episode_report'] = episode_tracker.summary()
+                changes['episode_history'] = episode_tracker.history_summaries()
+            dashboard.publish(**changes)
+
     bridge = SerialBridge(args.port or 'simulation', baud=args.baud,
-                          on_status=(lambda status: dashboard.publish(sensor_status=status))
-                          if dashboard else None)
+                          on_status=sensor_status if dashboard or episode_tracker else None)
     source = replay(args.simulate, bridge, args.speed) if args.simulate else bridge.windows()
     # Sensor collection runs in a worker so the countdown continues even if
     # serial.readline() waits or a replay ends.
@@ -218,8 +250,9 @@ def main(argv=None):
         try:
             simulation_start.wait()
             for window in source:
+                timestamped_window = list(bridge.latest_samples)[-32:]
                 try:
-                    windows.put_nowait(window)
+                    windows.put_nowait((window, timestamped_window))
                 except queue.Full:
                     continue
         except Exception as exc:
@@ -234,6 +267,8 @@ def main(argv=None):
                          args=(args.voice_model_dir, voice_events), daemon=True).start()
     frame_index = 0
     seizure_was_detected = False
+    seizure_rhythm_candidate_start_ms = None
+    seizure_rhythm_lost_ms = None
     fall_was_detected = False
     tremor_was_detected = False
     try:
@@ -322,7 +357,7 @@ def main(argv=None):
                 if dashboard:
                     dashboard.publish(incident=incident.state)
             try:
-                window = windows.get(timeout=.1)
+                queued_window = windows.get(timeout=.1)
             except queue.Empty:
                 if (stop.is_set() and windows.empty() and
                         (collection_errors or
@@ -332,7 +367,13 @@ def main(argv=None):
                 continue
             # SerialBridge emits 32 samples with a 16-sample hop at 50 Hz.
             # Replay windows use the same nominal timing.
-            end_ms = 620 + frame_index * 320
+            if (isinstance(queued_window, tuple) and len(queued_window) == 2 and
+                    isinstance(queued_window[1], list)):
+                window, sensor_samples = queued_window
+            else:
+                window, sensor_samples = queued_window, []
+            end_ms = (sensor_samples[-1].timestamp_ms if sensor_samples
+                      else 620 + frame_index * 320)
             frame_index += 1
             print('Sensor window collected', flush=True)
             axis_rms = np.std(np.asarray(window, dtype=float)[:, :3], axis=0)
@@ -343,12 +384,46 @@ def main(argv=None):
             }
             print(f'Motion window: {json.dumps(motion_point)}', flush=True)
             update = {'motion': motion_point, 'windows': frame_index}
+            if len(sensor_samples) >= 2:
+                window_axes = np.asarray([sample.values[:3] for sample in sensor_samples], dtype=float)
+                centered_window = window_axes - window_axes.mean(axis=0)
+                window_motion_rms = float(np.sqrt(np.mean(np.sum(centered_window ** 2, axis=1))))
+            else:
+                window_motion_rms = None
+            if dashboard and bridge.latest_samples:
+                latest_ms = bridge.latest_samples[-1].timestamp_ms
+                raw = np.asarray([sample.values[:3] for sample in bridge.latest_samples], dtype=float)
+                # Per-axis baseline removal centers gravity at zero while preserving
+                # signed sensor noise and actual dynamic acceleration.
+                dynamic = raw - raw.mean(axis=0)
+                update['waveform'] = [
+                    {'timestamp_ms': sample.timestamp_ms,
+                     'x_g': round(float(dynamic[index, 0]), 5),
+                     'y_g': round(float(dynamic[index, 1]), 5),
+                     'z_g': round(float(dynamic[index, 2]), 5)}
+                    for index, sample in enumerate(bridge.latest_samples)
+                    if latest_ms - sample.timestamp_ms <= 5000
+                ]
             seizure_trigger = False
+            seizure_detected = False
+            motion_status = None
             fall_trigger = False
             if seizure_detector:
                 seizure_result = seizure_detector.push_window(window, end_ms)
                 motion_status = getattr(seizure_detector, 'status', None)
                 if motion_status:
+                    if motion_status.get('motion') == 'rhythmic':
+                        if seizure_rhythm_candidate_start_ms is None:
+                            seizure_rhythm_candidate_start_ms = (
+                                motion_status.get('rhythmic_start_ms') or
+                                end_ms - int(motion_status.get('rhythmic_seconds', 0) * 1000))
+                        seizure_rhythm_lost_ms = None
+                    elif seizure_rhythm_candidate_start_ms is not None:
+                        if seizure_rhythm_lost_ms is None:
+                            seizure_rhythm_lost_ms = end_ms
+                        elif (end_ms - seizure_rhythm_lost_ms) % (2 ** 32) >= args.episode_recovery_seconds * 1000:
+                            seizure_rhythm_candidate_start_ms = None
+                            seizure_rhythm_lost_ms = None
                     probability = motion_status['probability']
                     score_text = 'waiting' if probability is None else f'{probability:.3f}'
                     print(f"Possible seizure-like movement check: motion={motion_status['motion']}; "
@@ -382,6 +457,26 @@ def main(argv=None):
                     tremor_was_detected = tremor_detected
                     update['tremor'] = {'label': tremor_label, 'peak_hz': peak_hz,
                                         'band_rms_g': band_rms_g}
+                    update['tremor_spectrum'] = tremor_detector.spectrum()
+                    update['tremor_spectrum'] = tremor_detector.spectrum()
+            if episode_tracker and sensor_samples:
+                rhythmic = bool(motion_status and motion_status.get('motion') == 'rhythmic')
+                frequency_valid = bool(rhythmic and
+                                       motion_status.get('motion_rms_g', 0) >= args.seizure_motion_rms_g and
+                                       motion_status.get('peak_power_share', 0) >= args.seizure_peak_power_share and
+                                       motion_status.get('band_power_share', 0) >= args.seizure_band_power_share)
+                spectrum = tremor_detector.spectrum() if tremor_detector else []
+                episode_tracker.observe(
+                    sensor_samples, detected=seizure_detected, rhythmic=rhythmic,
+                    rhythmic_seconds=(motion_status or {}).get('rhythmic_seconds', 0),
+                    frequency_hz=(motion_status or {}).get('peak_hz'),
+                    frequency_valid=frequency_valid,
+                    motion_rms_g=(motion_status or {}).get('motion_rms_g'),
+                    window_rms_g=window_motion_rms, spectrum=spectrum,
+                    source_type='simulated' if args.simulate else 'arduino',
+                    onset_timestamp_ms=seizure_rhythm_candidate_start_ms)
+                update['episode_report'] = episode_tracker.summary()
+                update['episode_history'] = episode_tracker.history_summaries()
             if detector:
                 fall_label, fall_probability = detector.predict(window)
                 fall_detected = fall_label == 'fall'

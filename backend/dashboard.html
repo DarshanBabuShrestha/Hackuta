@@ -28,43 +28,466 @@
     #help { background: #ffac89; color: #351b13; }
     #enroll { background: #a8c8ff; color: #10233f; }
     #start-replay { background: #e7cd8c; color: #30250c; }
+    #share-location { background: #80dec0; color: #10291f; }
+    .chart-wrap { height: 230px; overflow: hidden; border-radius: 9px; margin-top: 10px; }
+    .chart-svg { width: 100%; height: 100%; display: block; overflow: hidden; }
+    .chart-grid { stroke: #304757; stroke-width: 1; }
+    .chart-axis { fill: #a9c2d1; font-size: 11px; }
+    .chart-empty { fill: #a9c2d1; font-size: 14px; text-anchor: middle; }
+    .chart-summary { min-height: 1.3em; }
     ul { list-style: none; margin: 0; padding: 0; }
     li { padding: 9px 0; border-top: 1px solid #304757; }
     li:first-child { border-top: 0; }
     time { color: #a9c2d1; margin-right: 12px; }
     footer { margin-top: 22px; font-size: .85rem; color: #a9c2d1; }
+    /* Theatrical archive styling: ink, vellum, engraved bronze. */
+    :root { color-scheme:dark; font-family:'Segoe UI',sans-serif; color:#e9dfc8; background:#111b1d; }
+    body { min-height:100dvh; padding:14px; background:radial-gradient(ellipse at 50% -24%,#46616a 0,#25383d 40%,#111b1d 100%); }
+    main { max-width:1540px; }
+    header { min-height:74px; padding:12px 20px; position:relative; overflow:hidden; border:1px solid #a18451; border-radius:2px; background:linear-gradient(105deg,#13252b,#294044 55%,#172a2e); box-shadow:inset 0 0 0 3px #bba16b1a,0 8px 26px #0008; }
+    header::before { content:'FIELD CHRONICLE  ·  AEGEAN VOYAGE'; position:absolute; right:52px; top:7px; color:#baa577; font:600 .56rem system-ui,sans-serif; letter-spacing:.2em; }
+    header::after { content:'⚓'; position:absolute; right:15px; top:17px; color:#c19b5d77; font:26px Georgia,serif; }
+    header > div { display:flex; align-items:baseline; gap:16px; position:relative; z-index:1; }
+    h1 { color:#f0e6ce; font:1.85rem/.98 Georgia,'Palatino Linotype',serif; letter-spacing:.01em; text-shadow:0 2px 12px #0009; }
+    header p:first-of-type { color:#d3b878; font:600 .73rem system-ui,sans-serif; letter-spacing:.1em; text-transform:uppercase; }
+    header p:last-of-type { color:#bdc7bd; font-size:.8rem; }
+    .grid { grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; margin-top:10px; }
+    .card { position:relative; overflow:hidden; min-width:0; padding:13px 15px; border:1px solid #816c49; border-radius:2px; background:linear-gradient(145deg,#283a3b,#1b2a2b 75%); box-shadow:inset 0 0 0 3px #b99b6010,0 5px 15px #0005; }
+    .card::before { content:''; position:absolute; top:0; left:0; width:34px; height:2px; background:#c4a367; }
+    .grid > .card:nth-child(1),.grid > .card:nth-child(2),.grid > .card:nth-child(3) { grid-column:span 2; }
+    .grid > .card:nth-child(4),.grid > .card:nth-child(5),.grid > .card:nth-child(6) { grid-column:span 2; padding:10px 12px; }
+    .grid > .card:nth-child(7) { grid-column:span 4; grid-row:span 2; }
+    .grid > .card:nth-child(8),.grid > .card:nth-child(9) { grid-column:span 2; }
+    .grid > .card:nth-child(10) { grid-column:span 2; grid-row:span 2; }
+    h2 { margin:0 0 8px; color:#d7c28e; font:600 .68rem/1.2 system-ui,sans-serif; letter-spacing:.13em; text-transform:uppercase; }
+    p,.muted { color:#bdc5b9; font-size:.8rem; }
+    .value { color:#f0e6ce; font:600 1.08rem Georgia,serif; }
+    .pill { border:1px solid #927b51; border-radius:2px; color:#efdfb8; background:#1d3033; font:600 .68rem system-ui,sans-serif; letter-spacing:.1em; text-transform:uppercase; }
+    .pill.live { color:#d0e0c6; background:#31523e; border-color:#77906c; }
+    .pill.alert { color:#f6dfc8; background:#703831; border-color:#b06a52; }
+    button { border:1px solid #a58a55; border-radius:2px; padding:9px 13px; color:#202b29; background:#c7ad73; font:600 .8rem system-ui,sans-serif; box-shadow:inset 0 1px #fff6,0 3px 9px #0005; }
+    button:hover:not(:disabled) { filter:brightness(1.1); }
+    #cancel,#share-location { color:#15281e; background:#a2b89a; border-color:#849a77; }
+    #help { color:#f8e9d5; background:#8d463c; border-color:#b16e57; }
+    #enroll,#start-replay { background:#d8c79b; }
+    .buttons { margin-top:8px; gap:7px; }
+    .chart-wrap { height:calc(100% - 30px); min-height:140px; overflow:hidden; margin-top:6px; border:1px solid #806e4d; border-radius:1px; background:#172426; box-shadow:inset 0 0 18px #0008; }
+    .chart-grid { stroke:#b7a57755; }
+    .chart-axis { fill:#d1c5a2; font-family:'Segoe UI',sans-serif; }
+    .chart-empty { fill:#d1c5a2; }
+    #events { max-height:calc(100dvh - 190px); overflow:auto; scrollbar-color:#927b51 #1c2b2c; }
+    #events li { padding:8px 4px; border-color:#786745; color:#e9dfc8; font-size:.77rem; }
+    #events li:first-child { color:#f1d9a5; }
+    time { color:#d2b16d; font:600 .7rem system-ui,sans-serif; }
+    @media(max-width:900px) { body {padding:9px} .grid {grid-template-columns:repeat(2,minmax(0,1fr))} .grid>.card {grid-column:span 1!important;grid-row:auto!important;min-height:130px} .grid>.card:nth-child(7),.grid>.card:nth-child(10) {grid-column:1/-1!important} header>div {gap:8px;flex-wrap:wrap} header::before {display:none} }
+    /* Odyssey theatrical command console */
+    :root { color-scheme:dark; --navy:#091925; --bronze:#A8793D; --gold:#D9B46A; --paper:#E8D5A7; --ivory:#F4E7CB; --crimson:#692A21; --teal:#6DD4C1; --ink:#192523; font-family:Inter,'Segoe UI',sans-serif; background:var(--navy); color:var(--ivory); }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100dvh; padding:10px; overflow:hidden; background:radial-gradient(ellipse at 50% 0,#203847 0,#0d202a 42%,#07141d 100%); }
+    main { width:min(100%,1800px); height:calc(100dvh - 20px); margin:auto; display:grid; grid-template-rows:148px 50px 82px minmax(0,1fr); gap:8px; }
+    header.hero { min-height:0; padding:0; position:relative; display:grid; place-items:center; overflow:hidden; isolation:isolate; border:2px solid #956b36; outline:1px solid #d4b76d88; outline-offset:-6px; background:#101f29 url('assets/odyssey-header.webp') center 52%/cover no-repeat; box-shadow:0 9px 30px #0009,inset 0 0 45px #070e13; }
+    header.hero::before { content:''; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,#07141d1d 0,#07141d45 28%,#08151dcc 43%,#08151dcc 57%,#07141d45 75%,#07141d1a),linear-gradient(0deg,#091925bb,transparent 42%,#09192522); }
+    header.hero::after { content:'✦  THE AEGEAN CHRONICLE  ✦'; position:absolute; right:18px; bottom:10px; color:#e2c782; font:600 .55rem/1 system-ui,sans-serif; letter-spacing:.32em; text-shadow:0 2px 5px #000; }
+    .hero-title { display:block; position:relative; z-index:1; padding:7px 22px 15px; text-align:center; text-shadow:0 2px 2px #090c0c,0 0 22px #000; }
+    h1 { margin:0; color:var(--gold); font:clamp(1.9rem,3.7vw,3.35rem)/.98 'Palatino Linotype',Georgia,serif; font-variant:small-caps; letter-spacing:.14em; }
+    .hero-title p { margin:9px 0 0; color:#fff0ce; font:600 .68rem/1 system-ui,sans-serif; letter-spacing:.48em; }
+    .monitor-bar { min-width:0; display:flex; align-items:center; gap:13px; padding:6px 12px; border:1px solid var(--bronze); background:linear-gradient(90deg,#241d16,#5b4428 16%,#172a30 17%,#172a30 83%,#5b4428 84%,#241d16); box-shadow:inset 0 0 0 2px #dbbd6b27,0 4px 14px #0006; }
+    .shield { flex:none; width:30px; height:34px; color:var(--gold); }
+    .incident-block { min-width:0; flex:1; display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; column-gap:11px; }
+    .eyebrow { color:#c6a968; font-size:.57rem; font-weight:700; letter-spacing:.17em; text-transform:uppercase; }
+    #incident { color:var(--ivory); font:600 .98rem Georgia,serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #incident-help { display:none; }
+    .monitor-meta { display:flex; align-items:center; gap:14px; color:#e7d8b8; font-size:.68rem; white-space:nowrap; }
+    #source,#sensor-status { margin:0; color:#d2c39f; font-size:.66rem; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border:1px solid #7e6a42; border-radius:0; color:var(--ivory); background:#15242a; font-size:.61rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+    .pill.live { color:#d9f4df; border-color:#568263; background:#173a30; }
+    .pill.live::before { content:''; width:6px; height:6px; border-radius:50%; background:#75db8a; box-shadow:0 0 8px #75db8a; }
+    .pill.alert { color:#ffe1d4; background:#692a21; border-color:#a75a43; }
+    .monitor-actions { display:flex; align-items:center; gap:7px; }
+    button, summary { cursor:pointer; font:700 .7rem system-ui,sans-serif; }
+    button { min-height:30px; padding:6px 10px; border:1px solid #b99350; border-radius:0; color:#211c13; background:linear-gradient(#e7cc8b,#b28b4c); box-shadow:inset 0 1px #fff8,0 2px 6px #0005; }
+    button:hover:not(:disabled) { filter:brightness(1.13); }
+    button:disabled { cursor:default; opacity:.46; }
+    #cancel { color:#15251d; background:#b8c69d; border-color:#81956f; }
+    #help { color:#fff1dc; background:linear-gradient(#91453a,#62251f); border-color:#c08b55; }
+    #enroll,#start-replay,#share-location { color:#20190f; }
+    #voice-menu { position:relative; }
+    #voice-menu summary { padding:8px 10px; border:1px solid #ae8a50; color:var(--ivory); background:#1c2c30; list-style:none; white-space:nowrap; }
+    #voice-menu summary::-webkit-details-marker { display:none; }
+    #voice-menu summary::after { content:'⌄'; margin-left:8px; color:var(--gold); }
+    .menu-panel { position:absolute; z-index:9; top:calc(100% + 7px); right:0; width:min(330px,88vw); padding:14px; border:1px solid var(--gold); background:#101f24f7; box-shadow:0 12px 32px #000b; }
+    .menu-panel p { margin:6px 0; color:#decfa9; font-size:.72rem; }
+    .answer-actions { display:flex; gap:6px; }
+    .answer-actions button { flex:1; }
+    .detectors { min-height:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .detector { min-width:0; display:flex; align-items:center; gap:12px; padding:9px 14px; border:1px solid #8b6b3e; outline:1px solid #c99f5726; outline-offset:-4px; background:linear-gradient(115deg,#101e25,#1d3034 64%,#131f24); box-shadow:inset 0 0 18px #0005; }
+    .medallion { flex:none; width:42px; height:42px; display:grid; place-items:center; border:1px solid #c0954b; border-radius:50%; color:#dfbd70; background:radial-gradient(circle,#59452b,#1c292b 72%); box-shadow:inset 0 0 0 3px #d9b46a29,0 2px 7px #0008; }
+    .medallion svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:1.5; }
+    .detector h2,.panel h2 { margin:0; color:#e1c989; font:600 .76rem/1.2 Georgia,'Palatino Linotype',serif; letter-spacing:.065em; text-transform:uppercase; }
+    .detector .value { margin-top:5px; color:#fff0d0; font-size:.83rem; font-weight:650; line-height:1.25; }
+    #seizure-motion { margin-top:3px; color:#cabb98; font-size:.62rem; }
+    .console { min-height:0; display:grid; grid-template-columns:minmax(0,2.08fr) minmax(225px,.88fr) minmax(260px,1.04fr); gap:8px; }
+    .chart-column,.middle-column { min-height:0; display:grid; gap:8px; }
+    .chart-column { grid-template-rows:1.1fr .9fr; }
+    .middle-column { grid-template-rows:minmax(0,1.25fr) minmax(120px,.75fr); }
+    .panel { min-width:0; min-height:0; position:relative; overflow:hidden; padding:10px 12px; border:1px solid #a8793d; outline:1px solid #d2ac623f; outline-offset:-4px; box-shadow:inset 0 0 0 2px #d6b86a15,0 5px 15px #0006; }
+    .instrument { display:flex; flex-direction:column; background:linear-gradient(145deg,#14262d,#09171e 78%); }
+    .instrument::before,.chronicle::before { content:''; position:absolute; inset:4px; pointer-events:none; border:1px solid #b58a4c41; }
+    .panel-heading { flex:none; display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:5px; }
+    .panel-heading .ornament { color:#b69150; font:.65rem Georgia,serif; letter-spacing:.18em; }
+    .chart-wrap { min-height:0; flex:1; overflow:hidden; margin-top:3px; border:1px solid #80633d; background:#081820; box-shadow:inset 0 0 24px #000c; }
+    .chart-svg { display:block; width:100%; height:100%; overflow:hidden; }
+    .chart-grid { stroke:#c8ad7050; stroke-width:.75; }
+    .chart-axis { fill:#e5d8b8; font:11px 'Segoe UI',sans-serif; }
+    .chart-empty { fill:#d9c99f; font:14px 'Segoe UI',sans-serif; text-anchor:middle; }
+    .chart-summary { flex:none; min-height:1.15em; margin:5px 0 0; color:#cbbd98; font-size:.65rem; }
+    .grow-button { min-height:25px; padding:4px 8px; color:#e8d7ae; border-color:#8d7041; background:#1a2b30; font-size:.62rem; }
+    .paper { color:var(--ink); border-color:#af8648; background:radial-gradient(ellipse at 50% 10%,#f2e4bd,#dfc997 84%); box-shadow:inset 0 0 0 4px #a7804529,inset 0 0 24px #94713e45,0 5px 14px #0006; }
+    .paper::before { content:'✦  ARCHIVE OF MOTION  ✦'; position:absolute; top:8px; right:12px; color:#745b36; font:600 .47rem system-ui,sans-serif; letter-spacing:.13em; }
+    .paper h2 { color:#3c3021; }
+    .episode-state { margin:8px 0; color:#613b26; font:600 .76rem Georgia,serif; }
+    .report-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px 8px; margin-top:6px; }
+    .report-metric { padding:5px 6px; border-top:1px solid #92784d6e; }
+    .report-metric span { display:block; color:#6e5a3b; font-size:.56rem; font-weight:750; letter-spacing:.06em; text-transform:uppercase; }
+    .report-metric strong { display:block; margin-top:2px; color:#2c3029; font:600 .9rem Georgia,serif; }
+    #full-report { margin-top:6px; color:#fff0d6; background:linear-gradient(#874036,#58221d); border-color:#8b582f; }
+    .motion-paper .value { margin-top:8px; color:#2c3029; font:600 .88rem/1.55 'Segoe UI',sans-serif; }
+    .motion-paper p { margin:5px 0 0; color:#6e5a3b; font-size:.67rem; }
+    .chronicle { display:flex; flex-direction:column; color:#302b22; border-color:#bc9658; background:linear-gradient(135deg,#e9d7ad,#d8c18f); }
+    .chronicle .panel-heading { padding:2px 4px 7px; border-bottom:1px solid #90704499; }
+    .chronicle h2 { color:#372b1c; font-size:.92rem; font-variant:small-caps; }
+    .chronicle .ornament { color:#6c4e2a; }
+    #events { min-height:0; overflow:auto; margin:4px 2px 0; padding:0 5px 0 0; list-style:none; scrollbar-color:#97713c #d8c18f; }
+    #events li { position:relative; padding:9px 5px 9px 23px; border-top:1px solid #8c724553; color:#39352c; font:.7rem/1.32 Georgia,serif; }
+    #events li:first-child { border-top:0; }
+    #events li::before { content:'✧'; position:absolute; left:3px; color:#926b32; }
+    #events li.urgent { color:#681f1a; background:#9c302212; }
+    #events li.urgent::before { content:'✦'; color:#8b2a20; }
+    time { display:block; margin-bottom:2px; color:#72552c; font:700 .57rem system-ui,sans-serif; letter-spacing:.08em; }
+    #updated { color:#cbbb98; font-size:.59rem; white-space:nowrap; }
+    footer { display:none; }
+    dialog { width:min(96vw,1320px); height:min(92dvh,850px); max-width:none; max-height:none; padding:14px; border:2px solid var(--gold); color:var(--ivory); background:#0b1a22; box-shadow:0 0 0 100vmax #000c,0 12px 50px #000; }
+    dialog::backdrop { background:#000b; }
+    .dialog-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; }
+    .dialog-head h2 { color:var(--gold); font:1.15rem Georgia,serif; }
+    .dialog-chart { height:calc(100% - 44px); }
+    #report-dialog { width:min(92vw,660px); height:auto; max-height:85dvh; }
+    #report-dialog p { color:#e1d4b4; font-size:.85rem; line-height:1.5; }
+    #full-report-close { margin-top:12px; }
+    @media(max-height:800px) and (min-width:1001px) { main { grid-template-rows:126px 46px 74px minmax(0,1fr); gap:7px; } header.hero { background-position:center 50%; } .detector { padding:6px 10px; } .medallion { width:36px; height:36px; } .panel { padding:8px 10px; } }
+    @media(max-width:1000px) { body { overflow:auto; } main { height:auto; min-height:100dvh; grid-template-rows:136px auto auto auto; } .monitor-bar { flex-wrap:wrap; } .monitor-meta { gap:8px; } .console { grid-template-columns:minmax(0,1.7fr) minmax(230px,1fr); grid-template-rows:minmax(490px,auto) 330px; } .chart-column { grid-row:span 2; } .middle-column { grid-template-rows:1fr .75fr; } .chronicle { min-height:280px; } }
+    @media(max-width:650px) { main { grid-template-rows:120px auto auto auto; } h1 { font-size:1.65rem; } .hero-title p { font-size:.52rem; letter-spacing:.3em; } .monitor-bar { gap:8px; } .incident-block { flex-basis:calc(100% - 50px); } .monitor-meta { order:3; flex:1; } .monitor-actions { order:4; margin-left:auto; } .detectors { grid-template-columns:1fr; } .detector { min-height:68px; } .console { display:flex; flex-direction:column; } .chart-column { grid-template-rows:300px 280px; } .middle-column { grid-template-rows:auto auto; } .episode-card { min-height:250px; } .motion-paper { min-height:130px; } .chronicle { min-height:300px; } }
+    #report-dialog { width:min(96vw,1250px); height:min(94dvh,920px); overflow:auto; }
+    .report-actions { display:flex; gap:8px; margin:8px 0; }
+    .download-link { display:inline-block; padding:7px 11px; border:1px solid #a8793d; color:#fff0d6; background:linear-gradient(#874036,#58221d); font:700 .68rem system-ui,sans-serif; text-decoration:none; }
+    .download-link[aria-disabled="true"] { opacity:.45; pointer-events:none; }
+    .report-chart-grid { display:grid; grid-template-columns:1.25fr 1fr; gap:12px; margin:10px 0; }
+    .report-chart-grid h3,#report-dialog section h3 { margin:0; color:#e2c989; font:600 .78rem Georgia,serif; }
+    .report-chart-title { min-height:30px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .report-chart-title .muted { color:#cabd9d; font-size:.61rem; }
+    .zoom-controls { display:flex; gap:4px; }
+    .zoom-controls button { min-height:23px; padding:3px 7px; color:#f3e6c9; border-color:#866b40; background:#172a30; font-size:.61rem; }
+    .report-canvas-wrap { height:240px; overflow:hidden; border:1px solid #997540; background:#081820; }
+    .report-canvas-wrap.compact { height:150px; margin:6px 0; }
+    .report-canvas-wrap canvas { display:block; width:100%; height:100%; }
+    .history-section { margin-top:10px; }
+    #episode-history { max-height:115px; overflow:auto; margin:5px 0; padding:0 6px; border:1px solid #8c7041; background:#131f23; }
+    #episode-history li { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 2px; border-color:#8c704144; color:#e8d8b5; font-size:.68rem; }
+    #episode-history button { min-height:24px; padding:4px 7px; color:#efdfb8; background:#1c2e31; }
+    @media(max-width:700px) { .report-chart-grid { grid-template-columns:1fr; } .report-canvas-wrap { height:210px; } }
   </style>
 </head>
 <body>
 <main>
-  <header>
-    <div><h1>Odyssey Guardian</h1><p id="source">Waiting for backend</p><p id="sensor-status">Waiting for sensor</p></div>
-    <span id="connection" class="pill">Connecting</span>
+  <header class="hero" aria-label="Odyssey Guardian: Trojan horse and Greek trireme crossing the Aegean">
+    <div class="hero-title"><h1>Odyssey Guardian</h1><p>THE WATCHFUL VOYAGE</p></div>
   </header>
-  <div class="grid">
-    <section class="card wide">
-      <div class="row"><h2>Incident status</h2><span id="updated" class="muted">No data yet</span></div>
-      <div id="incident" class="value">Waiting for backend</div><p id="incident-help">A confirmation prompt will appear for a possible incident.</p>
-      <p id="caregiver-status">Caregiver page: waiting for backend</p>
-      <div class="buttons">
-        <button id="cancel" disabled>I'm okay</button>
-        <button id="help" disabled>Need help</button>
-      </div>
-    </section>
-    <section class="card wide"><h2>Voice confirmation</h2><div id="voice" class="value">Waiting for backend</div><p id="voice-help">Uses this computer's microphone when a possible fall starts confirmation.</p><div class="buttons"><button id="enroll" disabled>Record my voice</button></div></section>
-    <section class="card wide" id="replay-card" hidden><h2>Sensor replay</h2><p>Record your voice first, then start the replay. You can also start without voice confirmation.</p><div class="buttons"><button id="start-replay">Start replay</button></div></section>
-    <section class="card"><h2>Tremor-like motion</h2><div id="tremor" class="value">Waiting for data</div></section>
-    <section class="card"><h2>Fall model</h2><div id="fall" class="value">Waiting for data</div></section>
-    <section class="card"><h2>Possible seizure-like movement</h2><div id="seizure" class="value">Waiting for data</div><div id="seizure-motion"></div></section>
-    <section class="card wide"><h2>Motion · axis RMS (g)</h2><div id="motion" class="value">Waiting for data</div><p id="windows">0 windows received</p></section>
-    <section class="card wide"><h2>Recent events</h2><ul id="events"><li class="muted">No events yet</li></ul></section>
-  </div>
-  <footer>Experimental motion demo. Phone calls require Twilio configuration. Keep this wearer dashboard on this computer.</footer>
+  <section class="monitor-bar" aria-label="Live monitoring status">
+    <svg class="shield" viewBox="0 0 32 38" role="img" aria-label="Bronze shield"><path d="M16 2 28 6v10c0 9-5 15-12 20C9 31 4 25 4 16V6z" fill="#754f27" stroke="currentColor" stroke-width="1.6"/><path d="M16 6 24 9v7c0 6-3 10-8 14-5-4-8-8-8-14V9z" fill="none" stroke="currentColor"/><path d="m16 10 1.5 4 4 .5-3 2.7.8 4-3.3-2.1-3.3 2.1.8-4-3-2.7 4-.5z" fill="currentColor"/></svg>
+    <div class="incident-block"><span class="eyebrow">Watch status</span><div id="incident">Waiting for backend</div><p id="incident-help">A confirmation prompt will appear for a possible incident.</p></div>
+    <div class="monitor-meta"><span id="connection" class="pill">Connecting</span><span id="source">Waiting for backend</span><span id="sensor-status">Waiting for sensor</span><span id="updated">No data yet</span></div>
+    <div class="monitor-actions">
+      <button id="cancel" disabled>I'm okay</button><button id="help" disabled>Need help</button>
+      <details id="voice-menu"><summary>Voice &amp; Location</summary><div class="menu-panel">
+        <div class="eyebrow">Voice confirmation</div><div id="voice" class="value">Waiting for backend</div><p id="voice-help">Uses this computer's microphone when a possible fall starts confirmation.</p><button id="enroll" disabled>Record my voice</button>
+        <hr style="border:0;border-top:1px solid #8c7147;margin:12px 0"><div class="eyebrow">Caregiver connection</div><p id="caregiver-status">Caregiver page: waiting for backend</p><p id="location-share-status">Location sharing is off.</p><button id="share-location">Share my location with caregiver</button>
+        <section id="replay-card" hidden><hr style="border:0;border-top:1px solid #8c7147;margin:12px 0"><div class="eyebrow">Sensor replay</div><p>Record your voice first, then start replay, or start without voice confirmation.</p><button id="start-replay">Start replay</button></section>
+      </div></details>
+    </div>
+  </section>
+  <section class="detectors" aria-label="Experimental motion detection status">
+    <article class="detector"><div class="medallion" aria-hidden="true"><svg viewBox="0 0 28 28"><path d="M2 15h5l3-8 5 15 3-9 2 3h6"/></svg></div><div><h2>Tremor-like motion</h2><div id="tremor" class="value">Waiting for data</div></div></article>
+    <article class="detector"><div class="medallion" aria-hidden="true"><svg viewBox="0 0 28 28"><path d="M14 3 25 23H3z"/><path d="M14 10v6m0 3v.2"/></svg></div><div><h2>Fall model</h2><div id="fall" class="value">Waiting for data</div></div></article>
+    <article class="detector"><div class="medallion" aria-hidden="true"><svg viewBox="0 0 28 28"><path d="M14 3v22M5 8c4 2 4 10 0 12m18-12c-4 2-4 10 0 12M9 5c3 3 3 15 0 18m10-18c-3 3-3 15 0 18"/></svg></div><div><h2>Possible seizure-like movement</h2><div id="seizure" class="value">Waiting for data</div><div id="seizure-motion"></div></div></article>
+  </section>
+  <section class="console" aria-label="Motion monitoring console">
+    <div class="chart-column">
+      <section class="panel instrument"><div class="panel-heading"><h2>Live Motion Waveform</h2><span class="ornament">— V —</span><button class="grow-button" data-expand="waveform-dialog">Expand</button></div><div class="chart-wrap"><svg id="waveform-chart" class="chart-svg" viewBox="0 0 760 230" role="img" aria-label="Five-second signed X, Y and Z acceleration waveform"></svg></div><p class="chart-summary" id="waveform-status">Waiting for sensor samples</p></section>
+      <section class="panel instrument"><div class="panel-heading"><h2>Tremor Frequency Spectrum</h2><span class="ornament">3–20 Hz · example band 3–12 Hz</span><button class="grow-button" data-expand="spectrum-dialog">Expand</button></div><div class="chart-wrap"><svg id="spectrum-chart" class="chart-svg" viewBox="0 0 760 230" role="img" aria-label="Tremor frequency power spectrum"></svg></div><p class="chart-summary" id="spectrum-summary">Waiting for enough sensor samples</p></section>
+    </div>
+    <div class="middle-column">
+      <section class="panel paper episode-card"><div class="panel-heading"><h2>Episode Report</h2><span class="ornament" id="episode-source">AWAITING DATA</span></div><div id="episode-status" class="episode-state">No active episode report</div><div class="report-grid">
+        <div class="report-metric"><span>Duration</span><strong id="episode-duration">—</strong></div><div class="report-metric"><span>Average movement</span><strong id="episode-average">—</strong></div>
+        <div class="report-metric"><span>Highest peak</span><strong id="episode-peak">—</strong></div><div class="report-metric"><span>Above-average bursts</span><strong id="episode-bursts">—</strong></div>
+        <div class="report-metric"><span>Average frequency</span><strong id="episode-frequency">—</strong></div><div class="report-metric"><span>Time above average</span><strong id="episode-above-time">—</strong></div>
+      </div><button id="full-report">View Full Report</button></section>
+      <section class="panel paper motion-paper"><div class="panel-heading"><h2>Motion Axis RMS</h2><span class="ornament">INSTRUMENT 03</span></div><div id="motion" class="value">Waiting for data</div><p id="windows">0 windows received</p></section>
+    </div>
+    <aside class="panel chronicle"><div class="panel-heading"><h2>Recent Events</h2><span class="ornament">CHRONICLE</span></div><ul id="events"><li class="muted">No events yet</li></ul></aside>
+  </section>
+  <footer>Experimental seizure-like motion detection. Not a medical diagnosis.</footer>
 </main>
+<dialog id="waveform-dialog" aria-labelledby="waveform-dialog-title"><div class="dialog-head"><h2 id="waveform-dialog-title">Live Motion Waveform · Five seconds</h2><button data-close="waveform-dialog">Close</button></div><div class="chart-wrap dialog-chart"><svg id="waveform-modal-chart" class="chart-svg" viewBox="0 0 760 230" role="img" aria-label="Expanded live five-second acceleration waveform"></svg></div></dialog>
+<dialog id="spectrum-dialog" aria-labelledby="spectrum-dialog-title"><div class="dialog-head"><h2 id="spectrum-dialog-title">Tremor Frequency Spectrum · 3–20 Hz</h2><button data-close="spectrum-dialog">Close</button></div><div class="chart-wrap dialog-chart"><svg id="spectrum-modal-chart" class="chart-svg" viewBox="0 0 760 230" role="img" aria-label="Expanded live tremor frequency spectrum"></svg></div></dialog>
+<dialog id="report-dialog" aria-labelledby="report-dialog-title"><div class="dialog-head"><div><h2 id="report-dialog-title">Seizure-like Motion Episode Report</h2><span id="report-source" class="muted">Waiting for episode data</span></div><button data-close="report-dialog">Close</button></div>
+  <p id="report-detail">No completed episode report is available yet.</p><p id="report-motion-detail">Experimental sensor movement measurements; not a medical diagnosis.</p>
+  <div class="report-actions"><a id="download-json" class="download-link" aria-disabled="true">Download JSON</a><a id="download-csv" class="download-link" aria-disabled="true">Download CSV</a></div>
+  <div class="report-chart-grid"><section><div class="report-chart-title"><h3>Complete acceleration waveform</h3><div class="zoom-controls"><button data-zoom="out">−</button><button data-zoom="in">+</button><button data-zoom="reset">Reset view</button></div></div><div class="report-canvas-wrap"><canvas id="episode-waveform" role="img" aria-label="Complete episode X, Y, and Z dynamic acceleration waveform"></canvas></div></section>
+    <section><div class="report-chart-title"><h3>Dominant frequency timeline</h3><span class="muted">Valid rhythmic windows only</span></div><div class="report-canvas-wrap"><canvas id="episode-frequency" role="img" aria-label="Episode dominant frequency over time with missing measurements shown as gaps"></canvas></div></section></div>
+  <section id="spectrum-snapshot" hidden><h3>Power spectrum at peak movement</h3><div class="report-canvas-wrap compact"><canvas id="episode-spectrum" role="img" aria-label="Available power spectrum at peak movement timestamp"></canvas></div></section>
+  <section class="history-section"><h3>Five most recent completed reports</h3><ul id="episode-history"><li>No completed reports yet</li></ul></section>
+  <button id="full-report-close" data-close="report-dialog">Return to monitor</button></dialog>
 <script>
   const byId = id => document.getElementById(id);
   let socket;
   let retry;
+  let locationWatch = null;
+  let caregiverKey = '';
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const waveformChart = byId('waveform-chart'), spectrumChart = byId('spectrum-chart');
+  const waveformModalChart = byId('waveform-modal-chart'), spectrumModalChart = byId('spectrum-modal-chart');
+  let waveformSamples = [], latestSpectrum = [], latestTremor = null, lastWaveAt = 0, graphFrame = 0;
+  const makeSvg = (tag, attrs = {}) => { const node = document.createElementNS(svgNs, tag); Object.entries(attrs).forEach(([k,v]) => node.setAttribute(k,v)); return node; };
+  function plotBase(chart, prefix, xTicks, yTicks, x, y, xTitle, yTitle, plot) {
+    chart.replaceChildren();
+    const defs = makeSvg('defs'), clip = makeSvg('clipPath', {id: `${prefix}-clip`});
+    clip.append(makeSvg('rect', {x:48,y:16,width:696,height:160})); defs.append(clip); chart.append(defs);
+    const group = makeSvg('g', {'clip-path':`url(#${prefix}-clip)`}); chart.append(group);
+    yTicks.forEach(t => { const yy=y(t.value); group.append(makeSvg('line',{x1:48,y1:yy,x2:744,y2:yy,class:'chart-grid'})); const label=makeSvg('text',{x:42,y:yy+4,'text-anchor':'end',class:'chart-axis'}); label.textContent=t.label; chart.append(label); });
+    xTicks.forEach(t => { const xx=x(t.value); group.append(makeSvg('line',{x1:xx,y1:16,x2:xx,y2:176,class:'chart-grid'})); const label=makeSvg('text',{x:xx,y:194,'text-anchor':'middle',class:'chart-axis'}); label.textContent=t.label; chart.append(label); });
+    const xt=makeSvg('text',{x:396,y:222,'text-anchor':'middle',class:'chart-axis'});xt.textContent=xTitle;chart.append(xt);
+    const yt=makeSvg('text',{x:4,y:18,class:'chart-axis'});yt.textContent=yTitle;chart.append(yt);
+    plot(group,x,y);
+  }
+  function drawWaveform(chart=waveformChart,prefix='wave') {
+    const now=waveformSamples.length ? waveformSamples[waveformSamples.length-1].timestamp_ms : 0;
+    const data=waveformSamples.filter(p=>now-p.timestamp_ms<=5000), yLimit=.5;
+    const x=t=>48+Math.max(0,Math.min(1,(t-(now-5000))/5000))*696;
+    const y=v=>16+(1-(Math.max(-yLimit,Math.min(yLimit,v))+yLimit)/(2*yLimit))*160;
+    plotBase(chart,prefix,[0,1,2,3,4,5].map(s=>({value:now-s*1000,label:s===0?'now':`-${s}`})),[-.5,-.25,0,.25,.5].map(v=>({value:v,label:v.toFixed(2)})),x,y,'Time (seconds)','Acceleration (g)',group=>{
+      if (!data.length) { const e=makeSvg('text',{x:396,y:105,class:'chart-empty'});e.textContent='No recent sensor samples';group.append(e);return; }
+      [['x_g','#80dec0'],['y_g','#a8c8ff'],['z_g','#ffac89']].forEach(([axis,color])=>{ const d=data.map((p,i)=>`${i?'L':'M'} ${x(p.timestamp_ms)} ${y(p[axis])}`).join(' ');group.append(makeSvg('path',{d,fill:'none',stroke:color,'stroke-width':2,'stroke-linecap':'round','stroke-linejoin':'round'})); });
+    });
+    if(chart===waveformChart) byId('waveform-status').textContent=data.length?`Live · ${data.length} samples · X, Y, Z (g)`:'Waiting for sensor samples';
+  }
+  let spectrumMax=.001;
+  function drawSpectrum(chart=spectrumChart,prefix='spectrum') {
+    const points=latestSpectrum||[], observed=Math.max(0,...points.map(p=>p.power||0));
+    const target=Math.max(.001,observed*2.5), unit=10**Math.floor(Math.log10(target));
+    const nice=Math.ceil(target/unit)*unit; spectrumMax=nice>spectrumMax?nice:Math.max(nice,spectrumMax*.99);
+    const x=f=>48+(Math.max(3,Math.min(20,f))-3)/17*696, y=v=>176-Math.max(0,Math.min(spectrumMax,v))/spectrumMax*160;
+    plotBase(chart,prefix,[3,6,9,12,16,20].map(v=>({value:v,label:String(v)})),[0,.25,.5,.75,1].map(f=>({value:f*spectrumMax,label:(f*spectrumMax).toPrecision(2)})),x,y,'Frequency (Hz)','Power',group=>{
+      group.append(makeSvg('rect',{x:x(3),y:16,width:x(12)-x(3),height:160,fill:'#17684e',opacity:.14}));
+      if(!points.length){const e=makeSvg('text',{x:396,y:105,class:'chart-empty'});e.textContent='Waiting for spectrum data';group.append(e);return;}
+      const d=points.map((p,i)=>`${i?'L':'M'} ${x(p.hz)} ${y(p.power)}`).join(' ');group.append(makeSvg('path',{d,fill:'none',stroke:'#80dec0','stroke-width':2.5,'stroke-linejoin':'round'}));
+      const peak=points.reduce((a,b)=>a.power>b.power?a:b);group.append(makeSvg('circle',{cx:x(peak.hz),cy:y(peak.power),r:5,fill:'#ffac89',stroke:'#1a2b39','stroke-width':2}));
+    });
+    if(chart===spectrumChart) byId('spectrum-summary').textContent=latestTremor?`Dominant frequency ${latestTremor.peak_hz.toFixed(2)} Hz · Band RMS ${latestTremor.band_rms_g.toFixed(4)} g`:'Waiting for enough sensor samples';
+  }
+  function scheduleGraphs(){if(graphFrame)return;graphFrame=requestAnimationFrame(()=>{graphFrame=0;drawWaveform();drawSpectrum();if(byId('waveform-dialog').open)drawWaveform(waveformModalChart,'wave-modal');if(byId('spectrum-dialog').open)drawSpectrum(spectrumModalChart,'spectrum-modal');});}
+  let latestEpisodeSummary = null, completedEpisodeHistory = [], activeFullReport = null;
+  const reportView = {scale:1, offset:0, dragX:null, dragOffset:0};
+  const formatElapsed = ms => Number.isFinite(ms) ? `${(ms/1000).toFixed(1)} s sensor time` : 'unavailable';
+  function setReportSummary(report, history=completedEpisodeHistory) {
+    latestEpisodeSummary = report || null;
+    completedEpisodeHistory = Array.isArray(history) ? history : [];
+    if (!report) {
+      byId('episode-status').textContent = 'No active episode report';
+      byId('episode-source').textContent = 'AWAITING DATA';
+      byId('episode-duration').textContent = byId('episode-average').textContent = byId('episode-peak').textContent = byId('episode-bursts').textContent = '—';
+      byId('episode-frequency').textContent = byId('episode-above-time').textContent = '—';
+      renderEpisodeHistory(completedEpisodeHistory);
+      return;
+    }
+    const state = report.status === 'REPORT_READY' ? 'Report ready' :
+      report.status === 'RECOVERING' ? 'Recovery period · recording continues' :
+      report.status === 'DATA_GAP' ? 'Recording paused · sensor data gap' : 'Episode in progress · collecting movement data';
+    byId('episode-status').textContent = state;
+    byId('episode-source').textContent = report.source_type==='arduino'?'REAL ARDUINO DATA':'SIMULATED / REPLAY';
+    byId('episode-duration').textContent = `${Math.floor((report.duration_seconds||0)/60).toString().padStart(2,'0')}:${Math.floor((report.duration_seconds||0)%60).toString().padStart(2,'0')}`;
+    byId('episode-average').textContent = Number.isFinite(report.average_movement_g_rms) ? `${report.average_movement_g_rms.toFixed(3)} g RMS` : '—';
+    byId('episode-peak').textContent = Number.isFinite(report.peak_movement_g_rms) ? `${report.peak_movement_g_rms.toFixed(3)} g RMS` : '—';
+    byId('episode-bursts').textContent = Number.isFinite(report.above_average_bursts) ? String(report.above_average_bursts) : '—';
+    byId('episode-frequency').textContent = Number.isFinite(report.average_frequency_hz) ? `${report.average_frequency_hz.toFixed(2)} Hz` : '—';
+    byId('episode-above-time').textContent = Number.isFinite(report.time_above_average_seconds) ? `${report.time_above_average_seconds.toFixed(1)} s` : '—';
+    renderEpisodeHistory(completedEpisodeHistory);
+  }
+  function renderEpisodeHistory(history) {
+    const list=byId('episode-history'); list.replaceChildren();
+    if(!history.length){const item=document.createElement('li');item.textContent='No completed reports yet';list.append(item);return;}
+    for(const report of history.slice(0,5)){
+      const item=document.createElement('li'), button=document.createElement('button');
+      const source=report.source_type==='arduino'?'Arduino':'Simulated';
+      button.textContent=`${source} · ${report.episode_id.slice(0,8)} · ${(report.duration_seconds||0).toFixed(1)}s`;
+      button.onclick=()=>openEpisodeReport(report.episode_id); item.append(button); list.append(item);
+    }
+  }
+  function paintCanvas(canvas, draw) {
+    const box=canvas.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+    if(!box.width||!box.height)return;
+    canvas.width=Math.round(box.width*dpr); canvas.height=Math.round(box.height*dpr);
+    const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,box.width,box.height);
+    draw(ctx,box.width,box.height);
+  }
+  function reportTimeBounds(report, timeline) {
+    const all=timeline.map(p=>p.elapsed_ms).filter(Number.isFinite);
+    let first=all.length?all[0]:0,last=all.length?all[0]:1;
+    for(const value of all){if(value<first)first=value;if(value>last)last=value;}
+    const onset=Number.isFinite(report.start_elapsed_ms)?report.start_elapsed_ms:first;
+    if(!all.length)last=onset+1;
+    const fullMin=(first-onset)/1000, fullMax=(last-onset)/1000;
+    const span=Math.max(.1,(fullMax-fullMin)/reportView.scale);
+    const travel=Math.max(0,(fullMax-fullMin)-span);
+    const low=fullMin+travel*Math.max(0,Math.min(1,reportView.offset));
+    return {onset,fullMin,fullMax,min:low,max:low+span};
+  }
+  function paintReportAxes(ctx,w,h,{minX,maxX,minY,maxY,xLabel,yLabel}) {
+    const p={left:58,right:w-16,top:14,bottom:h-39}, pw=p.right-p.left, ph=p.bottom-p.top;
+    ctx.fillStyle='#091925';ctx.fillRect(0,0,w,h);ctx.font='10px Segoe UI';ctx.strokeStyle='rgba(218,188,126,.23)';ctx.lineWidth=1;
+    for(let i=0;i<=4;i++){
+      const y=p.bottom-ph*i/4, value=minY+(maxY-minY)*i/4;
+      ctx.beginPath();ctx.moveTo(p.left,y);ctx.lineTo(p.right,y);ctx.stroke();ctx.fillStyle='#e5d8b8';ctx.textAlign='right';ctx.fillText(value.toFixed(2),p.left-7,y+3);
+      const x=p.left+pw*i/4, xvalue=minX+(maxX-minX)*i/4;
+      ctx.beginPath();ctx.moveTo(x,p.top);ctx.lineTo(x,p.bottom);ctx.stroke();ctx.textAlign='center';ctx.fillText(xvalue.toFixed(1),x,p.bottom+14);
+    }
+    ctx.fillStyle='#f0e4c8';ctx.textAlign='center';ctx.fillText(xLabel,(p.left+p.right)/2,h-5);
+    ctx.save();ctx.translate(13,(p.top+p.bottom)/2);ctx.rotate(-Math.PI/2);ctx.fillText(yLabel,0,0);ctx.restore();
+    return {p,pw,ph,x:v=>p.left+(v-minX)/(maxX-minX||1)*pw,y:v=>p.bottom-(v-minY)/(maxY-minY||1)*ph};
+  }
+  function drawEpisodeWaveform(report) {
+    const canvas=byId('episode-waveform'), samples=report?.samples||[];
+    paintCanvas(canvas,(ctx,w,h)=>{
+      if(!samples.length){ctx.fillStyle='#dfc995';ctx.font='14px Georgia';ctx.textAlign='center';ctx.fillText('No recorded waveform samples',w/2,h/2);return;}
+      const bounds=reportTimeBounds(report,samples), onset=bounds.onset;
+      const times=samples.map(p=>(p.elapsed_ms-onset)/1000);
+      const low=Math.min(...times), high=Math.max(...times);
+      const values=samples.flatMap(p=>[p.dynamic_x_g,p.dynamic_y_g,p.dynamic_z_g]).filter(Number.isFinite);
+      const peakAxis=values.reduce((peak,value)=>Math.max(peak,Math.abs(value)),0);
+      const limit=Math.max(.02,peakAxis*1.12);
+      const a=paintReportAxes(ctx,w,h,{minX:bounds.min,maxX:bounds.max,minY:-limit,maxY:limit,xLabel:'Elapsed from episode onset (seconds)',yLabel:'Dynamic acceleration (g)'});
+      const visible=samples.filter(p=>{const t=(p.elapsed_ms-onset)/1000;return t>=bounds.min&&t<=bounds.max;});
+      ctx.save();ctx.beginPath();ctx.rect(a.p.left,a.p.top,a.pw,a.ph);ctx.clip();
+      let bandStart=null, prevT=null, previousElapsed=null;
+      for(const p of visible){const t=(p.elapsed_ms-onset)/1000, above=Number.isFinite(report.average_movement_g_rms)&&p.phase!=='pre_event'&&p.movement_g>report.average_movement_g_rms;
+        if(previousElapsed!==null&&p.elapsed_ms-previousElapsed>40&&bandStart!==null){ctx.fillStyle='rgba(217,180,106,.13)';ctx.fillRect(a.x(bandStart),a.p.top,Math.max(1,a.x(prevT)-a.x(bandStart)),a.ph);bandStart=null;}
+        if(above&&bandStart===null)bandStart=t;
+        if(!above&&bandStart!==null){ctx.fillStyle='rgba(217,180,106,.13)';ctx.fillRect(a.x(bandStart),a.p.top,Math.max(1,a.x(prevT)-a.x(bandStart)),a.ph);bandStart=null;}
+        prevT=t;previousElapsed=p.elapsed_ms;
+      }
+      if(bandStart!==null){ctx.fillStyle='rgba(217,180,106,.13)';ctx.fillRect(a.x(bandStart),a.p.top,Math.max(1,a.x(prevT)-a.x(bandStart)),a.ph);}
+      for(const [key,color] of [['dynamic_x_g','#6DD4C1'],['dynamic_y_g','#9FB9E5'],['dynamic_z_g','#D79372']]){
+        ctx.beginPath();let pen=false,previousElapsed=null;
+        for(const point of visible){const t=(point.elapsed_ms-onset)/1000,v=point[key];if(!Number.isFinite(v))continue;if(previousElapsed!==null&&point.elapsed_ms-previousElapsed>40)pen=false;const x=a.x(t),y=a.y(v);if(!pen){ctx.moveTo(x,y);pen=true;}else ctx.lineTo(x,y);previousElapsed=point.elapsed_ms;}
+        ctx.strokeStyle=color;ctx.lineWidth=1.45;ctx.stroke();
+      }
+      if(Number.isFinite(report.peak_movement_elapsed_ms)){const t=(report.peak_movement_elapsed_ms-onset)/1000;if(t>=bounds.min&&t<=bounds.max){const x=a.x(t);ctx.setLineDash([4,4]);ctx.strokeStyle='#f0bc61';ctx.beginPath();ctx.moveTo(x,a.p.top);ctx.lineTo(x,a.p.bottom);ctx.stroke();ctx.setLineDash([]);}}
+      ctx.restore();
+      ctx.font='10px Segoe UI';ctx.textAlign='left';[['X','#6DD4C1'],['Y','#9FB9E5'],['Z','#D79372']].forEach(([name,color],i)=>{ctx.fillStyle=color;ctx.fillText(`${name} axis`,a.p.left+i*64,a.p.top-3);});
+    });
+  }
+  function drawEpisodeFrequency(report) {
+    const canvas=byId('episode-frequency'), timeline=report?.frequency_timeline||[];
+    paintCanvas(canvas,(ctx,w,h)=>{
+      const valid=timeline.filter(p=>p.frequency_valid&&Number.isFinite(p.frequency_hz));
+      if(!timeline.length){ctx.fillStyle='#dfc995';ctx.font='14px Georgia';ctx.textAlign='center';ctx.fillText('No frequency history recorded',w/2,h/2);return;}
+      const bounds=reportTimeBounds(report,timeline), highest=report.highest_dominant_frequency_hz||Math.max(0,...valid.map(p=>p.frequency_hz));
+      const yMax=Math.max(6,Math.ceil(highest+1));
+      const a=paintReportAxes(ctx,w,h,{minX:bounds.min,maxX:bounds.max,minY:0,maxY:yMax,xLabel:'Elapsed from episode onset (seconds)',yLabel:'Dominant frequency (Hz)'});
+      ctx.save();ctx.beginPath();ctx.rect(a.p.left,a.p.top,a.pw,a.ph);ctx.clip();
+      if(Number.isFinite(report.average_frequency_hz)){const y=a.y(report.average_frequency_hz);ctx.setLineDash([6,4]);ctx.strokeStyle='#e3bd70';ctx.beginPath();ctx.moveTo(a.p.left,y);ctx.lineTo(a.p.right,y);ctx.stroke();ctx.setLineDash([]);}
+      ctx.beginPath();let pen=false;
+      for(const item of timeline){const t=(item.elapsed_ms-bounds.onset)/1000;if(!item.frequency_valid||!Number.isFinite(item.frequency_hz)||t<bounds.min||t>bounds.max){pen=false;continue;}const x=a.x(t),y=a.y(item.frequency_hz);if(!pen){ctx.moveTo(x,y);pen=true;}else ctx.lineTo(x,y);}
+      ctx.strokeStyle='#6DD4C1';ctx.lineWidth=1.8;ctx.stroke();
+      const peak=valid.reduce((best,item)=>!best||item.frequency_hz>best.frequency_hz?item:best,null);
+      if(peak){const x=a.x((peak.elapsed_ms-bounds.onset)/1000),y=a.y(peak.frequency_hz);ctx.fillStyle='#f0bc61';ctx.beginPath();ctx.arc(x,y,4,0,2*Math.PI);ctx.fill();}
+      ctx.restore();
+      ctx.font='10px Segoe UI';ctx.textAlign='left';ctx.fillStyle='#e3bd70';ctx.fillText(Number.isFinite(report.average_frequency_hz)?`Average ${report.average_frequency_hz.toFixed(2)} Hz`:'Average unavailable',a.p.left,a.p.top-3);
+    });
+  }
+  function drawEpisodeSpectrum(report) {
+    const points=report?.peak_spectrum||[], canvas=byId('episode-spectrum');
+    byId('spectrum-snapshot').hidden=!points.length;
+    if(!points.length)return;
+    paintCanvas(canvas,(ctx,w,h)=>{
+      const maxHz=Math.max(...points.map(p=>p.hz)),maxPower=Math.max(.000001,...points.map(p=>p.power))*1.15;
+      const a=paintReportAxes(ctx,w,h,{minX:Math.min(...points.map(p=>p.hz)),maxX:maxHz,minY:0,maxY:maxPower,xLabel:'Frequency (Hz)',yLabel:'Power'});
+      ctx.beginPath();points.forEach((p,i)=>{const x=a.x(p.hz),y=a.y(p.power);if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y);});ctx.strokeStyle='#6DD4C1';ctx.lineWidth=2;ctx.stroke();
+    });
+  }
+  function drawFullEpisodeReport(){if(!activeFullReport)return;drawEpisodeWaveform(activeFullReport);drawEpisodeFrequency(activeFullReport);drawEpisodeSpectrum(activeFullReport);}
+  async function openEpisodeReport(episodeId) {
+    try {
+      const response=await fetch(`/api/episodes/${encodeURIComponent(episodeId)}`);
+      if(!response.ok)throw new Error('Episode report could not be loaded');
+      activeFullReport=await response.json();
+      const r=activeFullReport, source=r.source_type==='arduino'?'Real Arduino sensor data':'Simulated/replayed data';
+      byId('report-source').textContent=`${source}${r.missing_data?' · incomplete sensor data':''}`;
+      byId('report-detail').textContent=`${r.status==='REPORT_READY'?'Completed':'In progress'} · ${formatElapsed(r.start_timestamp_ms)} to ${formatElapsed(r.end_timestamp_ms)} · ${r.duration_seconds.toFixed(2)} seconds · ${r.sample_count} recorded samples.`;
+      byId('report-motion-detail').textContent=`Average movement ${r.average_movement_g_rms?.toFixed(3)??'—'} g RMS · peak ${r.peak_movement_g_rms?.toFixed(3)??'—'} g RMS at ${formatElapsed(r.peak_movement_timestamp_ms)} · ${r.above_average_bursts??0} above-average bursts (${(r.time_above_average_seconds||0).toFixed(2)} s). Frequency: ${r.average_frequency_hz?.toFixed(2)??'—'} Hz average, ${r.highest_dominant_frequency_hz?.toFixed(2)??'—'} Hz highest, ${r.frequency_variability_hz?.toFixed(2)??'—'} Hz standard deviation across ${r.valid_frequency_windows||0} valid windows. ${r.data_quality_warnings?.join(' ')||'No data-quality warnings.'}`;
+      for(const [id,format] of [['download-json','json'],['download-csv','csv']]){
+        const link=byId(id), ready=r.status==='REPORT_READY';
+        link.setAttribute('aria-disabled',String(!ready));
+        if(ready){link.href=`/api/episodes/${encodeURIComponent(r.episode_id)}/export?format=${format}`;link.download=`odyssey-episode-${r.episode_id}.${format}`;}
+        else link.removeAttribute('href');
+      }
+      reportView.scale=1;reportView.offset=0;byId('report-dialog').showModal();requestAnimationFrame(drawFullEpisodeReport);
+    } catch(error) {
+      byId('report-source').textContent='Report unavailable';byId('report-detail').textContent=error.message;
+      byId('report-motion-detail').textContent='No report data has been fabricated.';byId('report-dialog').showModal();
+    }
+  }
+  function reportDialogPointer(event){
+    if(!activeFullReport)return;
+    const canvas=event.currentTarget;
+    if(event.type==='wheel'){event.preventDefault();reportView.scale=Math.max(1,Math.min(24,reportView.scale*(event.deltaY<0?1.25:.8)));reportView.offset=Math.min(1,reportView.offset);drawFullEpisodeReport();}
+    else if(event.type==='pointerdown'){reportView.dragX=event.clientX;reportView.dragOffset=reportView.offset;canvas.setPointerCapture(event.pointerId);}
+    else if(event.type==='pointermove'&&reportView.dragX!==null){const maxOffset=1-1/reportView.scale;reportView.offset=Math.max(0,Math.min(maxOffset,reportView.dragOffset-(event.clientX-reportView.dragX)/canvas.clientWidth));drawFullEpisodeReport();}
+    else if(event.type==='pointerup'||event.type==='pointercancel'){reportView.dragX=null;}
+  }
+  for(const canvas of [byId('episode-waveform'),byId('episode-frequency')]){
+    canvas.addEventListener('wheel',reportDialogPointer,{passive:false});canvas.addEventListener('pointerdown',reportDialogPointer);canvas.addEventListener('pointermove',reportDialogPointer);canvas.addEventListener('pointerup',reportDialogPointer);canvas.addEventListener('pointercancel',reportDialogPointer);
+  }
+  document.querySelectorAll('[data-zoom]').forEach(button=>button.onclick=()=>{
+    if(button.dataset.zoom==='reset'){reportView.scale=1;reportView.offset=0;}
+    else reportView.scale=Math.max(1,Math.min(24,reportView.scale*(button.dataset.zoom==='in'?1.5:1/1.5)));
+    reportView.offset=Math.min(reportView.offset,1-1/reportView.scale);drawFullEpisodeReport();
+  });
+  window.addEventListener('resize',()=>{if(byId('report-dialog').open)drawFullEpisodeReport();});
+  function shareLocation() {
+    if (!navigator.geolocation) { byId('location-share-status').textContent = 'Location unavailable'; return; }
+    caregiverKey = window.prompt('Enter the caregiver access key shown in the backend terminal:') || '';
+    if (!caregiverKey) return;
+    if (location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+      byId('location-share-status').textContent = 'HTTPS is required for location sharing.'; return;
+    }
+    byId('location-share-status').textContent = 'Requesting location permission…';
+    locationWatch = navigator.geolocation.watchPosition(async position => {
+      const payload = {latitude: position.coords.latitude, longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy, timestamp: new Date(position.timestamp).toISOString()};
+      try {
+        const response = await fetch('/api/location', {method: 'POST', headers: {
+          'Content-Type': 'application/json', 'X-Caregiver-Key': caregiverKey}, body: JSON.stringify(payload)});
+        if (!response.ok) throw new Error('Location update rejected');
+        byId('location-share-status').textContent = `Sharing location · ±${Math.round(payload.accuracy)} m accuracy`;
+      } catch (_) { byId('location-share-status').textContent = 'Location update unavailable'; }
+    }, error => {
+      byId('location-share-status').textContent = error.code === error.PERMISSION_DENIED ? 'Location unavailable · permission denied' : 'Location unavailable';
+      if (locationWatch !== null) navigator.geolocation.clearWatch(locationWatch);
+      locationWatch = null;
+    }, {enableHighAccuracy: true, maximumAge: 10000, timeout: 15000});
+    byId('share-location').textContent = 'Stop location sharing';
+    byId('share-location').onclick = () => { navigator.geolocation.clearWatch(locationWatch); locationWatch = null; caregiverKey = ''; byId('share-location').textContent = 'Share my location with caregiver'; byId('location-share-status').textContent = 'Location sharing is off.'; byId('share-location').onclick = shareLocation; };
+  }
   function render(data) {
     byId('source').textContent = data.source;
     byId('sensor-status').textContent = data.sensor_status;
@@ -91,6 +514,29 @@
     byId('fall').textContent = data.fall ? `${data.fall.label.replaceAll('_', ' ')} · ${Math.round(data.fall.probability * 100)}% fall score` : data.enabled.fall ? 'Waiting for data' : 'Off in this mode';
     byId('seizure').textContent = data.seizure ? `${data.seizure.label.replaceAll('_', ' ')} · ${Math.round(data.seizure.probability * 100)}% seizure-like score` : data.enabled.seizure ? 'Waiting for data' : 'Off in this mode';
     byId('seizure-motion').textContent = data.seizure_motion ? `${data.seizure_motion.motion} · rhythmic ${data.seizure_motion.rhythmic_seconds.toFixed(1)}s · ${data.seizure_motion.reason}` : '';
+    const report = data.episode_report;
+    if (report && typeof report === 'object') {
+      byId('episode-status').textContent = report.status || 'Completed movement report';
+      byId('episode-duration').textContent = Number.isFinite(report.duration_seconds) ? `${Math.floor(report.duration_seconds / 60).toString().padStart(2,'0')}:${Math.floor(report.duration_seconds % 60).toString().padStart(2,'0')}` : '—';
+      byId('episode-average').textContent = Number.isFinite(report.average_movement_g_rms) ? `${report.average_movement_g_rms.toFixed(3)} g` : '—';
+      byId('episode-peak').textContent = Number.isFinite(report.peak_movement_g_rms) ? `${report.peak_movement_g_rms.toFixed(3)} g` : '—';
+      byId('episode-bursts').textContent = Number.isFinite(report.above_average_bursts) ? String(report.above_average_bursts) : '—';
+      byId('report-detail').textContent = 'A report payload is available in the live stream. Values shown in the monitor use the report fields supplied by the backend.';
+      byId('report-motion-detail').textContent = `Episode status: ${report.status || 'Report ready'}. Experimental sensor movement summary; not a medical diagnosis.`;
+    } else {
+      byId('episode-status').textContent = data.seizure_motion ? 'Live motion status · completed report unavailable' : 'No active episode report';
+      byId('episode-duration').textContent = byId('episode-average').textContent = byId('episode-peak').textContent = byId('episode-bursts').textContent = '—';
+      byId('report-detail').textContent = 'The current sensor stream does not include a completed episode report. No report values are being estimated.';
+      byId('report-motion-detail').textContent = data.seizure_motion ? `Current detector status: ${data.seizure_motion.motion}; rhythmic window ${data.seizure_motion.rhythmic_seconds.toFixed(1)} seconds. This is detector status, not total episode duration.` : 'No seizure-like motion episode report is present in the current stream.';
+    }
+    setReportSummary(data.episode_report, data.episode_history);
+    if (Array.isArray(data.waveform)) {
+      waveformSamples = data.waveform.slice(-250);
+      lastWaveAt = waveformSamples.length ? Date.now() : lastWaveAt;
+    }
+    if (Array.isArray(data.tremor_spectrum)) latestSpectrum = data.tremor_spectrum;
+    if (data.tremor) latestTremor = data.tremor;
+    scheduleGraphs();
     byId('motion').textContent = data.motion ? `X ${data.motion.x_g_rms.toFixed(3)}  ·  Y ${data.motion.y_g_rms.toFixed(3)}  ·  Z ${data.motion.z_g_rms.toFixed(3)}` : 'Waiting for data';
     byId('windows').textContent = `${data.windows} windows received`;
     byId('cancel').disabled = byId('help').disabled = !['CONFIRMING', 'VERIFYING'].includes(data.incident);
@@ -101,10 +547,18 @@
     }
     for (const event of data.events) {
       const item = document.createElement('li');
+      if (/urgent|alert|fall|help|seizure/i.test(event.message)) item.classList.add('urgent');
       const time = document.createElement('time'); time.textContent = event.time;
       item.append(time, document.createTextNode(event.message)); events.append(item);
     }
   }
+  setInterval(() => {
+    if (lastWaveAt && Date.now() - lastWaveAt > 1500) {
+      waveformSamples = [];
+      byId('waveform-status').textContent = 'Sensor disconnected · no recent samples';
+      scheduleGraphs();
+    }
+  }, 500);
   function connect() {
     socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
     socket.onopen = () => { byId('connection').textContent = 'Live'; byId('connection').className = 'pill live'; };
@@ -127,6 +581,16 @@
   };
   byId('start-replay').onclick = () => {
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({command: 'start_simulation'}));
+  };
+  byId('share-location').onclick = shareLocation;
+  document.querySelectorAll('[data-expand]').forEach(button => button.onclick = () => {
+    const dialog = byId(button.dataset.expand); dialog.showModal(); scheduleGraphs();
+  });
+  document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => byId(button.dataset.close).close());
+  byId('full-report').onclick = () => {
+    const report=latestEpisodeSummary||completedEpisodeHistory[0];
+    if(report?.episode_id) openEpisodeReport(report.episode_id);
+    else { byId('report-source').textContent='No episode recording';byId('report-detail').textContent='A report will appear after sustained seizure-like motion is detected and its recovery period completes.';byId('report-motion-detail').textContent='This experimental analysis describes sensor movement and is not a medical diagnosis.';byId('report-dialog').showModal(); }
   };
   connect();
 </script>

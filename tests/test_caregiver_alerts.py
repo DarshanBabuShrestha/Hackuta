@@ -120,7 +120,8 @@ def test_caregiver_websocket_requires_key_and_only_accepts_acknowledgment():
         good = Socket('test-key')
         task = asyncio.create_task(route.endpoint(good))
         initial = await asyncio.wait_for(good.sent.get(), 1)
-        assert set(initial) == {'caregiver_alert', 'caregiver_connected', 'updated_at'}
+        assert set(initial) == {'caregiver_alert', 'caregiver_connected', 'location',
+                                'location_status', 'updated_at'}
         await good.received.put({'command': 'cancel'})
         await good.received.put({'command': 'acknowledge', 'alert_id': 'incident-1'})
         await asyncio.sleep(.05)

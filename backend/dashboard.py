@@ -1,19 +1,23 @@
 """Small local dashboard and thread-safe WebSocket snapshot publisher."""
 import asyncio
+import csv
 import hmac
+import io
+import json
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 
 class Dashboard:
     def __init__(self, commands, source, enabled=None, voice_enabled=False,
-                 caregiver_key=None, simulation_waiting=False):
+                 caregiver_key=None, simulation_waiting=False, episode_tracker=None):
         self.commands = commands
         self.caregiver_key = caregiver_key
+        self.episode_tracker = episode_tracker
         self.lock = threading.Lock()
         self.clients = set()
         self.state = {
@@ -30,6 +34,8 @@ class Dashboard:
             'motion': None,
             'fall': None,
             'tremor': None,
+            'tremor_spectrum': [],
+            'waveform': [],
             'seizure': None,
             'seizure_motion': None,
             'windows': 0,
@@ -37,7 +43,11 @@ class Dashboard:
             'events': [],
             'caregiver_alert': None,
             'caregiver_connected': False,
+            'location': None,
+            'location_status': 'Location unavailable',
             'simulation_waiting': simulation_waiting,
+            'episode_report': episode_tracker.summary() if episode_tracker else None,
+            'episode_history': episode_tracker.history_summaries() if episode_tracker else [],
         }
         self.app = FastAPI()
 
@@ -47,9 +57,111 @@ class Dashboard:
                 return PlainTextResponse('Wearer dashboard is local only', status_code=403)
             return HTMLResponse(Path(__file__).with_name('dashboard.html').read_text(encoding='utf-8'))
 
+        @self.app.get('/assets/odyssey-header.webp')
+        async def odyssey_header_art():
+            return FileResponse(Path(__file__).with_name('assets') / 'odyssey-header.webp',
+                                media_type='image/webp')
+
+        def owner_local(request):
+            return bool(request.client and request.client.host in ('127.0.0.1', '::1', 'localhost'))
+
+        @self.app.get('/api/episodes')
+        async def episode_history(request: Request):
+            if not owner_local(request):
+                return PlainTextResponse('Episode reports are available on the wearer computer only', status_code=403)
+            if not self.episode_tracker:
+                return {'active': None, 'reports': []}
+            return {'active': self.episode_tracker.summary(),
+                    'reports': self.episode_tracker.history_summaries()}
+
+        @self.app.get('/api/episodes/{episode_id}')
+        async def episode_report(episode_id: str, request: Request):
+            if not owner_local(request):
+                return PlainTextResponse('Episode reports are available on the wearer computer only', status_code=403)
+            if len(episode_id) != 32 or any(character not in '0123456789abcdef' for character in episode_id):
+                return PlainTextResponse('Episode report not found', status_code=404)
+            report = self.episode_tracker.get_report(episode_id) if self.episode_tracker else None
+            if report is None:
+                return PlainTextResponse('Episode report not found', status_code=404)
+            return JSONResponse(report)
+
+        @self.app.get('/api/episodes/{episode_id}/export')
+        async def export_episode(episode_id: str, request: Request, format: str = 'json'):
+            if not owner_local(request):
+                return PlainTextResponse('Episode reports are available on the wearer computer only', status_code=403)
+            if len(episode_id) != 32 or any(character not in '0123456789abcdef' for character in episode_id):
+                return PlainTextResponse('Episode report not found', status_code=404)
+            report = self.episode_tracker.get_report(episode_id) if self.episode_tracker else None
+            if report is None:
+                return PlainTextResponse('Episode report not found', status_code=404)
+            filename = f"odyssey-episode-{episode_id}"
+            if format.lower() == 'json':
+                return Response(json.dumps(report, indent=2), media_type='application/json',
+                                headers={'Content-Disposition': f'attachment; filename="{filename}.json"'})
+            if format.lower() != 'csv':
+                return PlainTextResponse('format must be json or csv', status_code=422)
+            output = io.StringIO(newline='')
+            fields = ['record_type', 'episode_id', 'source_type', 'start_timestamp_ms',
+                      'start_elapsed_ms', 'end_timestamp_ms', 'end_elapsed_ms',
+                      'duration_seconds', 'average_frequency_hz',
+                      'highest_dominant_frequency_hz', 'frequency_variability_hz',
+                      'peak_movement_g_rms', 'average_movement_g_rms',
+                      'above_average_bursts', 'time_above_average_seconds',
+                      'peak_movement_timestamp_ms', 'sample_count', 'timestamp_ms', 'elapsed_ms',
+                      'recording_start_timestamp_ms', 'recording_end_timestamp_ms',
+                      'missing_data', 'data_quality_warnings', 'movement_intensity_method',
+                      'frequency_method', 'peak_spectrum_timestamp_ms',
+                      'phase', 'x_g', 'y_g', 'z_g', 'dynamic_x_g', 'dynamic_y_g',
+                      'dynamic_z_g', 'movement_g', 'frequency_hz', 'frequency_valid',
+                      'movement_rms_g', 'spectrum_json']
+            writer = csv.DictWriter(output, fieldnames=fields)
+            writer.writeheader()
+            timeline = {item['elapsed_ms']: item for item in report.get('frequency_timeline', [])}
+            summary = {key: report.get(key) for key in fields
+                       if key in report and key not in ('record_type', 'timestamp_ms', 'elapsed_ms')}
+            for sample in report.get('samples', []):
+                frequency = timeline.get(sample.get('elapsed_ms'), {})
+                row = dict(summary, record_type='sensor_sample', timestamp_ms=sample['timestamp_ms'],
+                           elapsed_ms=sample.get('elapsed_ms'))
+                row.update({key: sample.get(key) for key in
+                            ('phase', 'x_g', 'y_g', 'z_g', 'dynamic_x_g', 'dynamic_y_g',
+                             'dynamic_z_g', 'movement_g')})
+                row.update({key: frequency.get(key) for key in
+                            ('frequency_hz', 'frequency_valid', 'movement_rms_g')})
+                row['spectrum_json'] = (json.dumps(report.get('peak_spectrum'))
+                                        if report.get('peak_spectrum_timestamp_ms') == sample['timestamp_ms']
+                                        else '')
+                writer.writerow(row)
+            return Response(output.getvalue(), media_type='text/csv',
+                            headers={'Content-Disposition': f'attachment; filename="{filename}.csv"'})
+
         @self.app.get('/caregiver')
         async def caregiver_page():
             return HTMLResponse(Path(__file__).with_name('caregiver.html').read_text(encoding='utf-8'))
+
+        @self.app.post('/api/location')
+        async def update_location(request: Request):
+            supplied_key = request.headers.get('x-caregiver-key', '')
+            if not self.caregiver_key or not hmac.compare_digest(supplied_key, self.caregiver_key):
+                return PlainTextResponse('Unauthorized', status_code=401)
+            host = request.url.hostname
+            local = host in ('127.0.0.1', 'localhost', '::1')
+            forwarded_proto = request.headers.get('x-forwarded-proto', '').split(',')[0].strip()
+            if not local and request.url.scheme != 'https' and forwarded_proto != 'https':
+                return PlainTextResponse('HTTPS required', status_code=403)
+            try:
+                data = await request.json()
+                latitude, longitude = float(data['latitude']), float(data['longitude'])
+                accuracy, timestamp = float(data['accuracy']), str(data['timestamp'])
+                if not (-90 <= latitude <= 90 and -180 <= longitude <= 180 and
+                        0 <= accuracy <= 100000 and len(timestamp) <= 64):
+                    raise ValueError
+            except (KeyError, TypeError, ValueError):
+                return PlainTextResponse('Invalid location payload', status_code=422)
+            self.publish(location={'latitude': latitude, 'longitude': longitude,
+                                   'accuracy': accuracy, 'timestamp': timestamp},
+                         location_status='Available')
+            return {'ok': True}
 
         @self.app.websocket('/ws')
         async def stream(socket: WebSocket):
@@ -114,8 +226,10 @@ class Dashboard:
 
     def snapshot(self, caregiver=False):
         if caregiver:
-            return {key: self.state[key] for key in ('caregiver_alert', 'caregiver_connected', 'updated_at')}
-        return self.state.copy()
+            return {key: self.state[key] for key in ('caregiver_alert', 'caregiver_connected',
+                    'location', 'location_status', 'updated_at')}
+        return {key: value for key, value in self.state.items()
+                if key not in ('location', 'location_status')}
 
     def publish(self, **changes):
         with self.lock:
